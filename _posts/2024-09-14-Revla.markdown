@@ -2,13 +2,13 @@
 layout: post
 title:  "ReVLA: Reverting Visual Domain Limitation of Robotic Foundation Models"
 date:   2024-09-15 22:21:59 +00:00
-image: images/ReVLA.png
+image: /images/ReVLA.png
 categories: research
 author: "Sombit Dey"
-authors: "<strong>Leonid Keselman</strong>, Jan-Nico, Nikolay, Danda Pani Paudel, Luc Van Gool"
+authors: "<strong>Sombit Dey</strong>, Jan-Nico, Nikolay, Danda Pani Paudel, Luc Van Gool"
 venue: "arXiv"
 arxiv: https://arxiv.org/pdf/2409.15250
-code: https://github.com/leonidk/fmb-plus
-website: https://leonidk.github.io/fmb-plus
+code: TODO
+website: TODO
 ---
 We study the visual generalization capabilities of three existing robotic foundation models, and propose a corresponding evaluation framework.
