@@ -2,7 +2,7 @@
 layout: post
 title:  "ReVLA: Reverting Visual Domain Limitation of Robotic Foundation Models"
 date:   2024-09-15 22:21:59 +00:00
-image: /images/ReVLA.png
+image: images/ReVLA.png
 categories: research
 author: "Sombit Dey"
 authors: "<strong>Leonid Keselman</strong>, Jan-Nico, Nikolay, Danda Pani Paudel, Luc Van Gool"
