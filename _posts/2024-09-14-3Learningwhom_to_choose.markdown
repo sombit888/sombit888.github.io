@@ -2,12 +2,12 @@
 layout: post
 title:  "Learning whom to trust in navigation: dynamically switching between classical and neural planning"
 date:   2023-09-15 22:21:59 +00:00
-image: /images/ReVLA.jpg
+image: /images/Lwtc.png
 categories: research
 author: "Sombit Dey"
 authors: "<strong>Sombit Dey</strong>, Assem Sadek, Gianluca Monaci, Boris Chidlovskii, Christian Wolf"
-venue: "arXiv"
-arxiv: https://arxiv.org/pdf/2409.15250
+venue: "IROS 2023"
+arxiv: https://ieeexplore.ieee.org/abstract/document/10342308
 code: TODO
 website: https://sombit888.github.io/3DG
 ---
