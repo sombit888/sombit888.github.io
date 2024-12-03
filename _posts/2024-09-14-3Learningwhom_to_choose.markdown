@@ -1,12 +1,12 @@
 ---
 layout: post
-title:  "Fine-Grained Spatial and Verbal Losses for 3D Visual Grounding"
-date:   2024-09-15 22:21:59 +00:00
+title:  "Learning whom to trust in navigation: dynamically switching between classical and neural planning"
+date:   2023-09-15 22:21:59 +00:00
 image: /images/ReVLA.jpg
 categories: research
 author: "Sombit Dey"
-authors: "<strong>Sombit Dey</strong>, Ozan Unal, Christos Sakaridis, Luc Van Gool "
-venue: "WACV 2024"
+authors: "<strong>Sombit Dey</strong>, Assem Sadek, Gianluca Monaci, Boris Chidlovskii, Christian Wolf"
+venue: "arXiv"
 arxiv: https://arxiv.org/pdf/2409.15250
 code: TODO
 website: https://sombit888.github.io/3DG
