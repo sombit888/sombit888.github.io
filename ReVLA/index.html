@@ -65,6 +65,8 @@
 </nav>
 
 
+
+
 <section class="hero">
   <div class="hero-body">
     <div class="container is-max-desktop">
@@ -99,7 +101,7 @@
           <div class="column has-text-centered">
             <div class="publication-links">
               <!-- PDF Link. -->
-              <!-- <span class="link-block">
+              <span class="link-block">
                 <a href="https://arxiv.org/pdf/2409.15250"
                    class="external-link button is-normal is-rounded is-dark">
                   <span class="icon">
@@ -107,7 +109,8 @@
                   </span>
                   <span>Paper</span>
                 </a>
-              </span> -->
+              </span> 
+
               <span class="link-block">
                 <a href="https://arxiv.org/pdf/2409.15250"
                    class="external-link button is-normal is-rounded is-dark">
@@ -127,16 +130,27 @@
                   <span>Video</span>
                 </a>
               </span> -->
-              <!-- Code Link. -->
-              <!-- <span class="link-block">
-                <a href="https://github.com/google/nerfies"
+              <!-- Code Link. --> 
+              <span class="link-block">
+                <a href="https://github.com/sombit888/openvla"
                    class="external-link button is-normal is-rounded is-dark">
                   <span class="icon">
                       <i class="fab fa-github"></i>
                   </span>
                   <span>Code</span>
                   </a>
-              </span> -->
+              </span>
+              <span class="link-block">
+                <a href="https://huggingface.co/" 
+                   class="external-link button is-normal is-rounded is-dark" target="_blank">
+                  <span class="icon">
+                    <img src="https://huggingface.co/datasets/huggingface/brand-assets/raw/main/hf-logo.png" 
+                         alt="Hugging Face Logo" style="height: 20px; vertical-align: middle;">
+                  </span>
+                  <span>Hugging Face</span>
+                </a>
+              </span>
+
               <!-- Dataset Link. -->
               <!-- <span class="link-block">
                 <a href="https://github.com/google/nerfies/releases/tag/0.1"
@@ -173,6 +187,110 @@
   </div>
 </section>
 
+<!-- Write a section with 3 rows and two columns of videos  -->
+<section class="hero is-light is-small">
+  <div class="hero-body">
+    <div class="container">
+      <div class="columns is-centered">
+        <div class="column is-4">
+          <h2 class="title is-3">Hardware Experiments</h2>
+          <p>
+            We demonstrate the capabilities of our method on a real robot, in this case the Widowx robot. 
+            The robot is prompted with language instruction and a single 3rd person view uncaliberated image.
+            </p>
+
+            <br>
+
+            <div style="display: flex; justify-content: center; align-items: flex-start; gap: 20px;">
+              <!-- Video 1 with Caption Below -->
+              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
+                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
+                  <source src="./static/videos/dollyzoom-stacked.mp4" type="video/mp4">
+                  Your browser does not support the video tag.
+                </video>
+                <p style="margin-top: 10px; font-size: 1em;">ReVLA</p>
+              </div>
+            
+  
+              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
+                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
+                  <source src="./static/videos/dollyzoom-stacked.mp4" type="video/mp4">
+                  Your browser does not support the video tag.
+                </video>
+                <p style="margin-top: 10px; font-size: 1em;">OpenVLA</p>
+              </div>
+            </div>
+            <p style="text-align: center;">
+              Task Prompt : Pick up the Lobster  and place it on the plate  
+            </p>
+            <!-- add a blank space -->
+            <br>
+
+            <div style="display: flex; justify-content: center; align-items: flex-start; gap: 20px;">
+              <!-- Video 1 with Caption Below -->
+              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
+                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
+                  <source src="./static/videos/dollyzoom-stacked.mp4" type="video/mp4">
+                  Your browser does not support the video tag.
+                </video>
+                <p style="margin-top: 10px; font-size: 1em;">ReVLA</p>
+              </div>
+            
+  
+              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
+                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
+                  <source src="./static/videos/dollyzoom-stacked.mp4" type="video/mp4">
+                  Your browser does not support the video tag.
+                </video>
+                <p style="margin-top: 10px; font-size: 1em;">OpenVLA</p>
+              </div>
+            </div>
+          <p style="text-align: center;">
+              Task Prompt : Pick up the cup and place it on the specified plate  
+          </p>
+        
+          <!-- Add a horizontal line  -->
+          <hr style="border: 1px solid #000000;">
+          <p>
+            <strong> Indomain Task + Objects </strong>: In these episodes we use the same objects as in the bridge dataset and try to test ReVLA vs OpenVLA
+          </p>
+
+          <div style="display: flex; justify-content: center; align-items: flex-start; gap: 20px;">
+            <!-- Video 1 with Caption Below -->
+
+            <div style="display: flex; justify-content: center; align-items: flex-start; gap: 20px;">
+              <!-- Video 1 with Caption Below -->
+              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
+                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
+                  <source src="./static/videos/dollyzoom-stacked.mp4" type="video/mp4">
+                  Your browser does not support the video tag.
+                </video>
+                <p style="margin-top: 10px; font-size: 1em;">ReVLA</p>
+              </div>
+            
+  
+              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
+                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
+                  <source src="./static/videos/dollyzoom-stacked.mp4" type="video/mp4">
+                  Your browser does not support the video tag.
+                </video>
+                <p style="margin-top: 10px; font-size: 1em;">OpenVLA</p>
+              </div>
+            </div>
+          </div>
+          <p style="text-align: center;">
+            Task Prompt : Pick up the carrot and place it on the plate   
+            </p>
+          
+
+
+
+      </div>
+
+      </div>
+    </div>
+  </div>
+</section>
 
 <!-- <section class="hero is-light is-small">
   <div class="hero-body">
