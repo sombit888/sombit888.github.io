@@ -6,7 +6,7 @@ image: /images/3dg.png
 categories: research
 author: "Sombit Dey"
 authors: "<strong>Sombit Dey</strong>, Ozan Unal, Christos Sakaridis, Luc Van Gool "
-venue: "WACV 2024"
+venue: "WACV"
 arxiv: https://arxiv.org/abs/2411.03405
 code: TODO
 website: https://sombit888.github.io/3DG
