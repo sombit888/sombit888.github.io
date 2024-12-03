@@ -9,6 +9,6 @@ authors: "<strong>Sombit Dey</strong>, Jan-Nico, Nikolay, Danda Pani Paudel, Luc
 venue: "arXiv"
 arxiv: https://arxiv.org/pdf/2409.15250
 code: TODO
-website: https://leonidk.github.io/fmb-plus
+website: https://sombit888.github.io/ReVLA/
 ---
 We study the visual generalization capabilities of three existing robotic foundation models, and propose a corresponding evaluation framework.
