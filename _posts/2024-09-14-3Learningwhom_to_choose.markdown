@@ -6,7 +6,7 @@ image: /images/Lwtc.png
 categories: research
 author: "Sombit Dey"
 authors: "<strong>Sombit Dey</strong>, Assem Sadek, Gianluca Monaci, Boris Chidlovskii, Christian Wolf"
-venue: "IROS 2023"
+venue: "IROS"
 arxiv: https://ieeexplore.ieee.org/abstract/document/10342308
 code: TODO
 website: https://sombit888.github.io/3DG
