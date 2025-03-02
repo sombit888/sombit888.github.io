@@ -3,11 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="description"
-        content=" Regaining the Vision capabilities of Robotic Foundational Models ">
-  <meta name="keywords" content="Robotics Foundational Model">
+        content=" Fine-Grained Loss for 3D visual Grounding">
+  <meta name="keywords" content="3D visual grounding">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>ReVLA: Reverting Visual Domain Limitation
-    of Robotic Foundation Models</title>
+  <title> Fine-Grained Spatial and Verbal Losses for 3D Visual Grounding </title>
 
   <!-- Global site tag (gtag.js) - Google Analytics -->
   <!-- <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script> -->
@@ -72,29 +71,35 @@
     <div class="container is-max-desktop">
       <div class="columns is-centered">
         <div class="column has-text-centered">
-          <h1 class="title is-1 publication-title">ReVLA: Reverting Visual Domain Limitation
-            of Robotic Foundation Models</h1>
+          <h1 class="title is-1 publication-title">Fine-Grained Spatial and Verbal Losses for 3D Visual Grounding
+          </h1>
           <div class="is-size-5 publication-authors">
             <span class="author-block">
-              <a href="https://sombit888.github.io">Sombit Dey</a><sup>1</sup>,</span>
+              <a href="https://sombit888.github.io">Sombit Dey</a><sup>1,2</sup>,</span>
             <span class="author-block">
             <!-- just the names , no hrefs  -->
             
-              <a href="https://jannicozaech.github.io/">Jan-Nico</a><sup>1</sup>,</span>
-            <span class="author-block">
-              Nikolay Nikolov<sup>1</sup>,
+              <a href="https://ouenal.github.io/">Ozan Unal</a><sup>1,3</sup>,</span>
+              <a href="https://people.ee.ethz.ch/~csakarid/">Christos Sakaridis</a><sup>1</sup>,</span>
+            <!-- <span class="author-block"> 
+              <sup>1</sup>, -->
             </span>
-            <span class="author-block">
+            <!-- <span class="author-block">
               Danda Paudel<sup>1</sup>,
-            </span>
+            </span> -->
             <span class="author-block">
-              Luc Van Gool<sup>1</sup>,
+              <a href="https://insait.ai/prof-luc-van-gool/">Luc Van Gool</a><sup>1,2,4</sup>,</span>
             </span>
             
           </div>
 
           <div class="is-size-5 publication-authors">
-            <span class="author-block"><sup>1</sup><a href="https://insait.ai/">Insait, Sofia University </a></span>
+            <span class="author-block"><sup>1</sup><a href="https://ethz.ch/en/studies.html">ETH-Zurich
+              <span class="author-block"><sup>2</sup><a href="https://insait.ai/">INSAIT, Sofia University “St. Kliment Ohridski”
+                <span class="author-block"><sup>3</sup> Huawei Technologies
+                  <span class="author-block"><sup>4</sup> KU Leuven
+                  
+            </a></span>
             <!-- <span class="author-block"><sup>2</sup></span> -->
           </div>
 
@@ -102,7 +107,7 @@
             <div class="publication-links">
               <!-- PDF Link. -->
               <span class="link-block">
-                <a href="https://arxiv.org/pdf/2409.15250"
+                <a href="https://arxiv.org/abs/2411.03405"
                    class="external-link button is-normal is-rounded is-dark">
                   <span class="icon">
                       <i class="fas fa-file-pdf"></i>
@@ -112,7 +117,7 @@
               </span> 
 
               <span class="link-block">
-                <a href="https://arxiv.org/abs/2409.15250"
+                <a href="https://arxiv.org/abs/2411.03405"
                    class="external-link button is-normal is-rounded is-dark">
                   <span class="icon">
                       <i class="ai ai-arxiv"></i>
@@ -140,7 +145,7 @@
                   <span>Code</span>
                   </a>
               </span> -->
-              <span class="link-block">
+              <!-- <span class="link-block">
                 <a href="https://huggingface.co/Insait-Robotics" 
                    class="external-link button is-normal is-rounded is-dark" target="_blank">
                   <span class="icon">
@@ -149,7 +154,7 @@
                   </span>
                   <span>Hugging Face</span>
                 </a>
-              </span>
+              </span> -->
 
               <!-- Dataset Link. -->
               <!-- <span class="link-block">
@@ -177,166 +182,24 @@
                 type="video/mp4">
       </video> -->
       <!-- add a image src -->
-      <img src="./static/images/ReVLA.jpg" alt="teaser image">
+      <img src="./static/images/teaser.jpg" alt="teaser image">
 
 
       <h2 class="subtitle has-text-centered">
-        ReVLA aims to improve the visual domain capabilities of Robotic Foundational Models like OpenVLA. 
-        forgetting, we propose a gradual backbone reversal approach
-        founded on model merging. This enables OpenVLA which
-        requires the adaptation of the visual backbones during initial
-        training to regain its visual generalization ability.
+        We introduce two novel losses for 3D visual grounding:
+         a visual-level offset loss on regressed vector offsets from each instance to the 
+         ground-truth referred instance and a language-related span loss on predictions for 
+         the word-level span of the referred instance in the description.
+         AsphaltNet proposes novel auxiliary losses to aid 3D visual grounding with
+          competitive results compared to the state-of-the-art on the ReferIt3D benchmark.
       </h2>
-    </div>
-  </div>
-</section>
+      <br>
 
-<section>
-  <hr style="border: 1px solid black;">
-  <!-- Hardware experiments results   -->
-  <div class="container is-max-desktop" style="text-align: center;">
-    <h2 class="title is-3">Hardware Experiments</h2>
-    <h2 class="subtitle is-5">We test ReVLA on bridge robot and compare it with the OpenVLA. 
-      The robot is prompted with language instruction and a single 3rd person view uncaliberated image. 
-    </h2>
-    <div class="columns is-centered">
+      <img src="./static/images/pipeline_page-0001.jpg" alt="teaser image">
+      <!-- center the text -->
       
 
-    <table style="border-collapse: separate; border-spacing: 15px;">
-      <tr>
-        <th>Task</th>
-        <th>ReVLA</th>
-        <th>OpenVLA</th>
-        <!-- <th>Comments</th> -->
-    </tr>
-    <tr>
-        <td>Pick up the lobster and place it on the plate( Testing OOD Objects)</td>
-        <td>4/10</td>
-        <td>0/10</td>
-        <!-- <td>Lobster is highly OOD and showcases the strength of using a frozen vision backbone</td> -->
-    </tr>
-    <tr>
-        <td>Place the cup on the blue plate (Testing Visual Recognition)</td>
-        <td>5/10</td>
-        <td>2/10</td>
-        <!-- <td>Redo if possible (hardware failure 😟), for ReVLA</td> -->
-    </tr>
-    <tr>
-        <td>Pick up banana and place it in the pan (Indomain Task)</td>
-        <td>8/10</td>
-        <td>9/10</td>
-        <!-- <td></td> -->
-    </tr>
-  </table>
-  
-</section>
-<br>
-<br>
-<h4> We further tried Openvla-Bridge but it performs worse than OpenVLA, hence we compare only with OpenVLA.</h4>
-
-<hr style="border: 1px solid black;">
-<!-- Write a section with 3 rows and two columns of videos  -->
-<section class="hero is-light is-small">
-  <div class="hero-body">
-    <div class="container">
-      <div class="columns is-centered">
-        <div class="column is-4">
-          <h2 class="title is-3">Hardware Experiments</h2>
-          <p>
-            We demonstrate the capabilities of our method on a real robot, in this case the Widowx robot. 
-            The robot is prompted with language instruction and a single 3rd person view uncaliberated image.
-            </p>
-
-            <br>
-
-            <div style="display: flex; justify-content: center; align-items: flex-start; gap: 20px;">
-              <!-- Video 1 with Caption Below -->
-              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
-                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
-                  <source src="./static/videos/ReVLA_flip_bridge/Pick up the lobster and place it on the plate/1-rollout.mp4" type="video/mp4">
-                  Your browser does not support the video tag.
-                </video>
-                <p style="margin-top: 10px; font-size: 1em;">ReVLA</p>
-              </div>
-            
-  
-              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
-                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
-                  <source src="./static/videos/openvla-7b/Pick up the lobster and place it on the plate/1-rollout.mp4" type="video/mp4">
-                  Your browser does not support the video tag.
-                </video>
-                <p style="margin-top: 10px; font-size: 1em;">OpenVLA</p>
-              </div>
-            </div>
-            <p style="text-align: center;">
-              Task Prompt : Pick up the Lobster  and place it on the plate  
-            </p>
-            <!-- add a blank space -->
-            <br>
-
-            <div style="display: flex; justify-content: center; align-items: flex-start; gap: 20px;">
-              <!-- Video 1 with Caption Below -->
-              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
-                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
-                  <source src="./static/videos/ReVLA_flip_bridge/Place the cup on the blue plate/2-rollout.mp4" type="video/mp4">
-                  Your browser does not support the video tag.
-                </video>
-                <p style="margin-top: 10px; font-size: 1em;">ReVLA</p>
-              </div>
-            
-  
-              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
-                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
-                  <source src="./static/videos/openvla-7b/Place the cup on the blue plate/2-rollout.mp4" type="video/mp4">
-                  Your browser does not support the video tag.
-                </video>
-                <p style="margin-top: 10px; font-size: 1em;">OpenVLA</p>
-              </div>
-            </div>
-          <p style="text-align: center;">
-              Task Prompt : Pick up the cup and place it on the specified plate  
-          </p>
-        
-          <!-- Add a horizontal line  -->
-          <hr style="border: 1px solid #000000;">
-          <p>
-            <strong> Indomain Task + Objects </strong>: In these episodes we use the same objects as in the bridge dataset and try to test the drop in performance for the indomain tasks. 
-          </p>
-
-          <div style="display: flex; justify-content: center; align-items: flex-start; gap: 20px;">
-            <!-- Video 1 with Caption Below -->
-
-            <div style="display: flex; justify-content: center; align-items: flex-start; gap: 20px;">
-              <!-- Video 1 with Caption Below -->
-              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
-                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
-                  <source src="./static/videos/ReVLA_flip_bridge/Pick up the banana and place it in the pan/1-rollout.mp4" type="video/mp4">
-                  Your browser does not support the video tag.
-                </video>
-                <p style="margin-top: 10px; font-size: 1em;">ReVLA</p>
-              </div>
-            
-  
-              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
-                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
-                  <source src="./static/videos/openvla-7b/Pick up the banana and place it in the pan/1-rollout.mp4" type="video/mp4">
-                  Your browser does not support the video tag.
-                  
-                </video>
-                <p style="margin-top: 10px; font-size: 1em;">OpenVLA</p>
-              </div>
-            </div>
-          </div>
-          <p style="text-align: center;">
-            Task Prompt : Pick up the carrot and place it on the plate   
-            </p>
-          
-
-
-
-      </div>
-
-      </div>
+      <h2 style="text-align: center;">The overview of the method</h2>      
     </div>
   </div>
 </section>
@@ -401,7 +264,7 @@
 
 <!-- <section class="section">
   <div class="container is-max-desktop">
-    <!-- Abstract. -->
+    < Abstract. -->
     <!-- <div class="columns is-centered has-text-centered">
       <div class="column is-four-fifths">
         <h2 class="title is-3">Abstract</h2>
@@ -598,14 +461,14 @@
 <section class="section" id="BibTeX">
   <div class="container is-max-desktop content">
     <h2 class="title">BibTeX</h2>
-    <pre><code>@misc{dey2024revlarevertingvisualdomain,
-      title={ReVLA: Reverting Visual Domain Limitation of Robotic Foundation Models}, 
-      author={Sombit Dey and Jan-Nico Zaech and Nikolay Nikolov and Luc Van Gool and Danda Pani Paudel},
+    <pre><code>@misc{dey2024finegrainedspatialverballosses,
+      title={Fine-Grained Spatial and Verbal Losses for 3D Visual Grounding}, 
+      author={Sombit Dey and Ozan Unal and Christos Sakaridis and Luc Van Gool},
       year={2024},
-      eprint={2409.15250},
+      eprint={2411.03405},
       archivePrefix={arXiv},
       primaryClass={cs.CV},
-      url={https://arxiv.org/abs/2409.15250}, 
+      url={https://arxiv.org/abs/2411.03405}, 
 }
 </code></pre>
   </div>
