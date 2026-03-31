@@ -29,14 +29,14 @@
   <link rel="stylesheet" href="./static/css/bulma.min.css">
   <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
   <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
-  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
   <link rel="stylesheet" href="./static/css/index.css">
   <link rel="icon" href="./static/images/favicon.svg">
 
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <!-- Using CDN FontAwesome; no local webfonts needed -->
   <script src="./static/js/bulma-carousel.min.js"></script>
   <script src="./static/js/bulma-slider.min.js"></script>
   <script src="./static/js/index.js"></script>
@@ -67,9 +67,9 @@
 
 
 
-<section class="hero">
+<section class="hero hero-primary">
   <div class="hero-body">
-    <div class="container is-max-desktop">
+    <div class="container wide-container">
       <div class="columns is-centered">
         <div class="column has-text-centered">
           <h1 class="title is-1 publication-title">ReVLA: Reverting Visual Domain Limitation
@@ -142,13 +142,21 @@
                   </a>
               </span> -->
               <span class="link-block">
-                <a href="https://huggingface.co/Insait-Robotics" 
+                <a href="https://huggingface.co/INSAIT-Institute/ReVLA-Bridge" 
                    class="external-link button is-normal is-rounded is-dark" target="_blank">
                   <span class="icon">
-                    <img src="https://huggingface.co/datasets/huggingface/brand-assets/raw/main/hf-logo.png" 
-                         alt="Hugging Face Logo" style="height: 20px; vertical-align: middle;">
+                    <span aria-hidden="true" style="font-size:18px; line-height:1;">🤗</span>
                   </span>
-                  <span>Hugging Face</span>
+                  <span>ReVLA Bridge</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://huggingface.co/INSAIT-Institute/ReVLA-Fractal" 
+                   class="external-link button is-normal is-rounded is-dark" target="_blank">
+                  <span class="icon">
+                    <span aria-hidden="true" style="font-size:18px; line-height:1;">🤗</span>
+                  </span>
+                  <span>ReVLA Fractal</span>
                 </a>
               </span>
 
@@ -171,14 +179,14 @@
 </section>
 
 <section class="hero teaser">
-  <div class="container is-max-desktop">
+  <div class="container wide-container">
     <div class="hero-body">
       <!-- <video id="teaser" autoplay muted loop playsinline height="100%">
         <source src="./static/videos/teaser.mp4"
                 type="video/mp4">
       </video> -->
       <!-- add a image src -->
-      <img src="./static/images/ReVLA.jpg" alt="teaser image">
+      <img class="teaser-image" src="./static/images/ReVLA.jpg" alt="teaser image">
 
 
       <h2 class="subtitle has-text-centered">
@@ -192,151 +200,108 @@
   </div>
 </section>
 
-<section>
-  <hr style="border: 1px solid black;">
-  <!-- Hardware experiments results   -->
-  <div class="container is-max-desktop" style="text-align: center;">
+<section class="section-pad">
+  <hr class="section-divider">
+  <div class="container wide-container text-center">
     <h2 class="title is-3">Hardware Experiments</h2>
-    <h2 class="subtitle is-5">We test ReVLA on bridge robot and compare it with the OpenVLA. 
-      The robot is prompted with language instruction and a single 3rd person view uncaliberated image. 
-    </h2>
-    <div class="columns is-centered">
-      
-
-    <table style="border-collapse: separate; border-spacing: 15px;">
+    <h2 class="subtitle is-5">We test ReVLA on bridge robot and compare it with the OpenVLA. The robot is prompted with language instruction and a single 3rd person view uncaliberated image.</h2>
+    <div class="data-card">
+    <table class="data-table">
       <tr>
         <th>Task</th>
         <th>ReVLA</th>
         <th>OpenVLA</th>
-        <!-- <th>Comments</th> -->
-    </tr>
-    <tr>
-        <td>Pick up the lobster and place it on the plate( Testing OOD Objects)</td>
+      </tr>
+      <tr>
+        <td>Pick up the lobster and place it on the plate (OOD Objects)</td>
         <td>4/10</td>
         <td>0/10</td>
-        <!-- <td>Lobster is highly OOD and showcases the strength of using a frozen vision backbone</td> -->
-    </tr>
-    <tr>
-        <td>Place the cup on the blue plate (Testing Visual Recognition)</td>
+      </tr>
+      <tr>
+        <td>Place the cup on the blue plate (Visual Recognition)</td>
         <td>5/10</td>
         <td>2/10</td>
-        <!-- <td>Redo if possible (hardware failure 😟), for ReVLA</td> -->
-    </tr>
-    <tr>
+      </tr>
+      <tr>
         <td>Pick up banana and place it in the pan (Indomain Task)</td>
         <td>8/10</td>
         <td>9/10</td>
-        <!-- <td></td> -->
-    </tr>
-  </table>
-  
+      </tr>
+    </table>
+    </div>
+    <p class="note">We tried OpenVLA-Bridge but it performs worse than OpenVLA, so we compare only with OpenVLA.</p>
+  </div>
 </section>
-<br>
-<br>
-<h4> We further tried Openvla-Bridge but it performs worse than OpenVLA, hence we compare only with OpenVLA.</h4>
 
-<hr style="border: 1px solid black;">
-<!-- Write a section with 3 rows and two columns of videos  -->
-<section class="hero is-light is-small">
+<section class="hero is-light is-small section-pad">
   <div class="hero-body">
-    <div class="container">
+    <div class="container wide-container">
       <div class="columns is-centered">
-        <div class="column is-4">
+        <div class="column is-10-tablet is-8-desktop">
           <h2 class="title is-3">Hardware Experiments</h2>
           <p>
-            We demonstrate the capabilities of our method on a real robot, in this case the Widowx robot. 
-            The robot is prompted with language instruction and a single 3rd person view uncaliberated image.
-            </p>
-
-            <br>
-
-            <div style="display: flex; justify-content: center; align-items: flex-start; gap: 20px;">
-              <!-- Video 1 with Caption Below -->
-              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
-                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
-                  <source src="./static/videos/ReVLA_flip_bridge/Pick up the lobster and place it on the plate/1-rollout.mp4" type="video/mp4">
-                  Your browser does not support the video tag.
-                </video>
-                <p style="margin-top: 10px; font-size: 1em;">ReVLA</p>
-              </div>
-            
-  
-              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
-                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
-                  <source src="./static/videos/openvla-7b/Pick up the lobster and place it on the plate/1-rollout.mp4" type="video/mp4">
-                  Your browser does not support the video tag.
-                </video>
-                <p style="margin-top: 10px; font-size: 1em;">OpenVLA</p>
-              </div>
-            </div>
-            <p style="text-align: center;">
-              Task Prompt : Pick up the Lobster  and place it on the plate  
-            </p>
-            <!-- add a blank space -->
-            <br>
-
-            <div style="display: flex; justify-content: center; align-items: flex-start; gap: 20px;">
-              <!-- Video 1 with Caption Below -->
-              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
-                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
-                  <source src="./static/videos/ReVLA_flip_bridge/Place the cup on the blue plate/2-rollout.mp4" type="video/mp4">
-                  Your browser does not support the video tag.
-                </video>
-                <p style="margin-top: 10px; font-size: 1em;">ReVLA</p>
-              </div>
-            
-  
-              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
-                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
-                  <source src="./static/videos/openvla-7b/Place the cup on the blue plate/2-rollout.mp4" type="video/mp4">
-                  Your browser does not support the video tag.
-                </video>
-                <p style="margin-top: 10px; font-size: 1em;">OpenVLA</p>
-              </div>
-            </div>
-          <p style="text-align: center;">
-              Task Prompt : Pick up the cup and place it on the specified plate  
-          </p>
-        
-          <!-- Add a horizontal line  -->
-          <hr style="border: 1px solid #000000;">
-          <p>
-            <strong> Indomain Task + Objects </strong>: In these episodes we use the same objects as in the bridge dataset and try to test the drop in performance for the indomain tasks. 
+            We demonstrate the capabilities of our method on a real robot, in this case the WidowX robot. The robot is prompted with language instruction and a single 3rd person view uncaliberated image.
           </p>
 
-          <div style="display: flex; justify-content: center; align-items: flex-start; gap: 20px;">
-            <!-- Video 1 with Caption Below -->
-
-            <div style="display: flex; justify-content: center; align-items: flex-start; gap: 20px;">
-              <!-- Video 1 with Caption Below -->
-              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
-                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
-                  <source src="./static/videos/ReVLA_flip_bridge/Pick up the banana and place it in the pan/1-rollout.mp4" type="video/mp4">
-                  Your browser does not support the video tag.
-                </video>
-                <p style="margin-top: 10px; font-size: 1em;">ReVLA</p>
-              </div>
-            
-  
-              <div style="display: flex; flex-direction: column; align-items: center; width: 45%;">
-                <video id="dollyzoom1" autoplay controls muted loop playsinline style="width: 100%;">
-                  <source src="./static/videos/openvla-7b/Pick up the banana and place it in the pan/1-rollout.mp4" type="video/mp4">
-                  Your browser does not support the video tag.
-                  
-                </video>
-                <p style="margin-top: 10px; font-size: 1em;">OpenVLA</p>
-              </div>
+          <div class="video-pair">
+            <div class="video-card">
+              <video autoplay controls muted loop playsinline>
+                <source src="/ReVLA/static/videos/ReVLA_flip_bridge/lobster-plate/1-rollout.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+              </video>
+              <p class="video-label">ReVLA</p>
+            </div>
+            <div class="video-card">
+              <video autoplay controls muted loop playsinline>
+                <source src="/ReVLA/static/videos/openvla-7b/lobster-plate/2-rollout.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+              </video>
+              <p class="video-label">OpenVLA</p>
             </div>
           </div>
-          <p style="text-align: center;">
-            Task Prompt : Pick up the carrot and place it on the plate   
-            </p>
-          
+          <p class="task-caption">Task Prompt: Pick up the lobster and place it on the plate</p>
 
+          <div class="video-pair">
+            <div class="video-card">
+              <video autoplay controls muted loop playsinline>
+                <source src="/ReVLA/static/videos/ReVLA_flip_bridge/cup-blue-plate/1-rollout.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+              </video>
+              <p class="video-label">ReVLA</p>
+            </div>
+            <div class="video-card">
+              <video autoplay controls muted loop playsinline>
+                <source src="/ReVLA/static/videos/openvla-7b/cup-blue-plate/1-rollout.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+              </video>
+              <p class="video-label">OpenVLA</p>
+            </div>
+          </div>
+          <p class="task-caption">Task Prompt: Pick up the cup and place it on the specified plate</p>
 
+          <hr class="section-divider">
+          <p>
+            <strong>Indomain Task + Objects</strong>: We use the same objects as in the bridge dataset and test performance on indomain tasks.
+          </p>
 
-      </div>
-
+          <div class="video-pair">
+            <div class="video-card">
+              <video autoplay controls muted loop playsinline>
+                <source src="/ReVLA/static/videos/ReVLA_flip_bridge/banana-pan/3-rollout.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+              </video>
+              <p class="video-label">ReVLA</p>
+            </div>
+            <div class="video-card">
+              <video autoplay controls muted loop playsinline>
+                <source src="/ReVLA/static/videos/openvla-7b/banana-pan/1-rollout.mp4" type="video/mp4">
+                Your browser does not support the video tag.
+              </video>
+              <p class="video-label">OpenVLA</p>
+            </div>
+          </div>
+          <p class="task-caption">Task Prompt: Pick up the banana and place it in the pan</p>
+        </div>
       </div>
     </div>
   </div>
