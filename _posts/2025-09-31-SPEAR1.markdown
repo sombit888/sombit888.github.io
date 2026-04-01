@@ -1,0 +1,14 @@
+layout: post
+title:  "SPEAR-1: Scaling Beyond Robot Demonstrations via 3D Understanding"
+date:   2025-11-21 17:09:43 +00:00
+image: /images/spear_perf.png
+categories: research
+author: "Sombit Dey"
+authors: " Nikolay Nikolov, Giuliano Albanese,<strong>Sombit Dey</strong>, Aleksandar Yanev, Luc Van Gool, Jan-Nico Zaech, Danda Pani Paudel"
+venue: "CVPR 2026"
+arxiv: https://arxiv.org/abs/2511.17411
+pdf: https://arxiv.org/pdf/2511.17411
+<!-- weights: "Planned release (per paper)" -->
+website: "spear.insait.ai"
+---
+We build SPEAR-VLM, a 3D-aware vision-language model that infers object coordinates from a single image, and use it to train SPEAR-1, a robotic foundation model with grounded 3D perception and language-conditioned control. SPEAR-1 trains on ~45M frames from 24 Open X-Embodiment datasets, matching or surpassing Pi0-FAST and Pi0.5 while requiring ~20x fewer robot demonstrations; weights and 3D-annotated datasets are slated for public release.
