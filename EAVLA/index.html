@@ -111,7 +111,8 @@
       padding:18px;
       box-shadow:0 10px 30px -18px rgba(20,40,35,.35);
     }
-    .figure img{display:block;width:100%;height:auto;border-radius:8px}
+    .figure img,.figure video{display:block;width:100%;height:auto;border-radius:8px}
+    .figure video{background:#000}
     .caption{color:var(--muted);font-size:15px;margin:14px 4px 0;text-align:center}
     .caption b{color:var(--ink)}
 
@@ -191,6 +192,18 @@
     }
     tbody tr.ours td.best{color:var(--accent)}
     .table-note{color:var(--muted);font-size:14px;text-align:center;margin:14px auto 0;max-width:660px}
+    .soon{
+      margin:40px auto 0;max-width:640px;text-align:center;
+      background:var(--accent-soft);border:1px dashed var(--accent);
+      border-radius:14px;padding:18px 22px;
+      color:var(--ink);font-size:15.5px;
+    }
+    .soon b{color:var(--accent)}
+    .soon-tag{
+      display:inline-block;margin-right:10px;vertical-align:middle;
+      font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+      color:#fff;background:var(--accent);padding:4px 11px;border-radius:999px;
+    }
 
     .grid2{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
     @media(max-width:820px){.grid2{grid-template-columns:1fr}}
@@ -298,6 +311,15 @@
       </p>
     </div>
 
+    <div class="figure" style="margin-bottom:34px">
+      <video src="./static/videos/franka_results.mp4" autoplay muted loop playsinline controls poster="./static/images/teaser.png"></video>
+      <p class="caption">
+        <b>Real-robot rollouts (Franka).</b> EA-VLA vs. <span class="eqn">π&#8320;.&#8325;</span> (fine-tuned).
+        EA-VLA is markedly more robust to the execution gap, recovering from tracking error to land
+        <b>more successful grasps per episode</b>.
+      </p>
+    </div>
+
     <p class="tbl-title">ManiSkill simulation — success rate across randomization ratio σ</p>
     <div class="table-wrap">
       <table>
@@ -346,6 +368,11 @@
         </div>
         <p class="table-note">Execution awareness drives the gains; H=2 balances robustness and cost.</p>
       </div>
+    </div>
+
+    <div class="soon">
+      <span class="soon-tag">Coming soon</span>
+      Results on <b>contact-rich manipulation</b> tasks and deployment at <b>higher execution frequencies</b>.
     </div>
   </div>
 </section>
