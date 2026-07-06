@@ -1,0 +1,13 @@
+# Jekyll build output
+_site/
+.jekyll-cache/
+.jekyll-metadata
+
+# Bundler / local gems
+vendor/
+.bundle/
+Gemfile.lock
+
+# Local reference material (not part of the site)
+examples/
+external/

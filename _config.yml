@@ -82,6 +82,8 @@ plugins:
 
 # Exclude these files from your production _site
 exclude:
+  - vendor
+  - .bundle
   - Gemfile
   - Gemfile.lock
   - LICENSE
@@ -91,3 +93,5 @@ exclude:
   - todo.txt
   - _temp/index.html
   - _temp/
+  - external/
+  - examples/

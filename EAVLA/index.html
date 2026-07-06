@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EA-VLA: Execution-Aware VLAs for Robust Manipulation</title>
+  <meta name="description" content="Execution-Aware Vision-Language-Action models that reason about the gap between commanded and executed motion, for robust manipulation across controllers and robots.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="EA-VLA: Execution-Aware VLAs for Robust Manipulation">
+  <meta property="og:description" content="Adapting pretrained VLAs to varying execution dynamics by conditioning on the execution gap.">
+  <meta property="og:image" content="./static/images/teaser.png">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="icon" type="image/svg+xml" href="./static/images/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sofia+Sans:ital,wght@0,300..800;1,300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --ink:#141b1a;
+      --muted:#5d6b68;
+      --line:#e6ebe9;
+      --bg:#ffffff;
+      --soft:#f5f8f7;
+      --accent:#1f7a63;
+      --accent-soft:#e3f2ec;
+      --base:#b5476a;
+      --maxw:1000px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      font-family:"Sofia Sans",system-ui,-apple-system,sans-serif;
+      color:var(--ink);
+      background:var(--bg);
+      line-height:1.6;
+      font-size:18px;
+      -webkit-font-smoothing:antialiased;
+    }
+    a{color:var(--accent);text-decoration:none}
+    a:hover{text-decoration:underline}
+    .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+    .narrow{max-width:760px}
+
+    /* ---- nav ---- */
+    nav{
+      position:sticky;top:0;z-index:50;
+      background:rgba(255,255,255,.82);
+      backdrop-filter:saturate(140%) blur(10px);
+      border-bottom:1px solid var(--line);
+    }
+    .nav-inner{
+      max-width:var(--maxw);margin:0 auto;padding:12px 24px;
+      display:flex;align-items:center;justify-content:space-between;
+    }
+    .nav-inner .brand{font-weight:700;letter-spacing:.02em;color:var(--ink)}
+    .nav-inner .brand span{color:var(--accent)}
+    .nav-links a{color:var(--muted);font-weight:600;font-size:15px;margin-left:22px}
+    .nav-links a:hover{color:var(--accent);text-decoration:none}
+    @media(max-width:640px){.nav-links{display:none}}
+
+    /* ---- hero ---- */
+    header.hero{
+      padding:72px 0 40px;
+      text-align:center;
+      background:
+        radial-gradient(1200px 400px at 50% -120px, var(--accent-soft), transparent 70%);
+    }
+    .eyebrow{
+      display:inline-block;
+      font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+      color:var(--accent);
+      background:var(--accent-soft);
+      padding:5px 14px;border-radius:999px;margin-bottom:22px;
+    }
+    h1.title{
+      font-size:clamp(30px,5vw,52px);
+      line-height:1.08;
+      font-weight:800;
+      letter-spacing:-.02em;
+      margin:0 0 8px;
+    }
+    h1.title .brand-accent{color:var(--accent)}
+    .subtitle{
+      font-size:clamp(17px,2.2vw,21px);
+      color:var(--muted);font-weight:500;
+      max-width:640px;margin:14px auto 0;
+    }
+    .authors{margin:26px auto 4px;color:var(--muted);font-weight:600;font-size:16px}
+    .venue{color:var(--muted);font-size:15px}
+    .buttons{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:28px}
+    .btn{
+      display:inline-flex;align-items:center;gap:9px;
+      background:var(--ink);color:#fff;
+      padding:11px 22px;border-radius:999px;
+      font-weight:700;font-size:15px;
+      transition:transform .15s ease, background .15s ease;
+    }
+    .btn:hover{background:var(--accent);text-decoration:none;transform:translateY(-1px)}
+    .btn svg{width:16px;height:16px;fill:currentColor}
+
+    /* ---- teaser ---- */
+    .teaser{padding:20px 0 8px}
+    .figure{
+      background:var(--bg);
+      border:1px solid var(--line);
+      border-radius:16px;
+      padding:18px;
+      box-shadow:0 10px 30px -18px rgba(20,40,35,.35);
+    }
+    .figure img{display:block;width:100%;height:auto;border-radius:8px}
+    .caption{color:var(--muted);font-size:15px;margin:14px 4px 0;text-align:center}
+    .caption b{color:var(--ink)}
+
+    /* ---- sections ---- */
+    section{padding:52px 0}
+    .kicker{
+      font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+      color:var(--accent);margin:0 0 10px;text-align:center;
+    }
+    h2{font-size:clamp(24px,3.4vw,34px);font-weight:800;letter-spacing:-.01em;margin:0 0 22px;text-align:center}
+    .lead{color:var(--muted);font-size:18px}
+    .lead .hl{color:var(--ink);font-weight:700;background:linear-gradient(transparent 62%, var(--accent-soft) 62%)}
+
+    /* ---- stat strip ---- */
+    .stats{
+      display:grid;grid-template-columns:repeat(3,1fr);gap:18px;
+      margin-top:8px;
+    }
+    .stat{
+      background:var(--soft);border:1px solid var(--line);
+      border-radius:14px;padding:24px 18px;text-align:center;
+    }
+    .stat .num{font-size:clamp(28px,4vw,40px);font-weight:800;color:var(--accent);line-height:1}
+    .stat .lbl{color:var(--muted);font-size:14.5px;font-weight:600;margin-top:8px}
+    @media(max-width:640px){.stats{grid-template-columns:1fr}}
+
+    /* ---- tables ---- */
+    .tbl-title{font-weight:700;text-align:center;margin:0 0 16px;font-size:16px;letter-spacing:-.01em}
+    .table-wrap{
+      overflow-x:auto;
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:var(--bg);
+      box-shadow:0 14px 36px -24px rgba(20,40,35,.45);
+    }
+    table{border-collapse:collapse;width:100%;font-size:15px}
+    thead th{
+      background:var(--soft);
+      color:var(--muted);
+      font-weight:700;
+      font-size:12.5px;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+      padding:14px 16px;
+      text-align:center;
+      white-space:nowrap;
+      border-bottom:2px solid var(--ink);
+    }
+    thead th:first-child{text-align:left}
+    thead th.sig{text-transform:none;letter-spacing:0;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px}
+    tbody td{
+      padding:13px 16px;
+      text-align:center;
+      white-space:nowrap;
+      border-top:1px solid var(--line);
+      font-family:"JetBrains Mono",ui-monospace,monospace;
+      font-size:14px;
+      font-variant-numeric:tabular-nums;
+      color:var(--ink);
+    }
+    tbody tr:first-child td{border-top:0}
+    tbody td:first-child{
+      text-align:left;
+      font-family:"Sofia Sans",system-ui,-apple-system,sans-serif;
+      font-weight:600;
+      font-size:15px;
+    }
+    tbody tr:hover td{background:rgba(31,122,99,.045)}
+    /* best value in a column */
+    td.best{font-weight:800;color:var(--ink)}
+    /* our method */
+    tbody tr.ours td{background:var(--accent-soft);font-weight:700;color:var(--accent)}
+    tbody tr.ours:hover td{background:var(--accent-soft)}
+    tbody tr.ours td:first-child{position:relative;color:var(--ink);padding-left:20px}
+    tbody tr.ours td:first-child::before{
+      content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent);
+    }
+    tbody tr.ours td.best{color:var(--accent)}
+    .table-note{color:var(--muted);font-size:14px;text-align:center;margin:14px auto 0;max-width:660px}
+
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
+    @media(max-width:820px){.grid2{grid-template-columns:1fr}}
+
+    hr.div{border:0;border-top:1px solid var(--line);margin:0}
+
+    footer{padding:40px 0 60px;text-align:center;color:var(--muted);font-size:14.5px}
+    footer a{font-weight:600}
+
+    .eqn{
+      font-family:"JetBrains Mono",monospace;font-size:14px;
+      background:var(--soft);border:1px solid var(--line);border-radius:8px;
+      padding:3px 8px;color:var(--accent);white-space:nowrap;
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a class="brand" href="#top">EA<span>·</span>VLA</a>
+    <div class="nav-links">
+      <a href="#idea">Idea</a>
+      <a href="#method">Method</a>
+      <a href="#results">Results</a>
+      <a href="https://sombit888.github.io">Home</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <span class="eyebrow">Vision-Language-Action · Reinforcement Learning</span>
+    <h1 class="title">Execution-Aware VLAs<br>for <span class="brand-accent">Robust Manipulation</span></h1>
+    <p class="subtitle">Closing the gap between the actions a policy commands and the motion a robot actually executes.</p>
+    <p class="authors">Anonymous Authors</p>
+    <p class="venue">Under Review</p>
+    <div class="buttons">
+      <a class="btn" href="#" target="_blank" rel="noopener">
+        <svg viewBox="0 0 384 512"><path d="M320 464c8.8 0 16-7.2 16-16V160h-80c-17.7 0-32-14.3-32-32V48H64c-8.8 0-16 7.2-16 16V448c0 8.8 7.2 16 16 16H320zM0 64C0 28.7 28.7 0 64 0H229.5c17 0 33.3 6.7 45.3 18.7l90.5 90.5c12 12 18.7 28.3 18.7 45.3V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64z"/></svg>
+        Paper (PDF)
+      </a>
+    </div>
+  </div>
+</header>
+
+<section class="teaser" style="padding-top:8px">
+  <div class="wrap">
+    <div class="figure">
+      <img src="./static/images/teaser.png" alt="Naive VLA vs Execution-Aware VLA">
+      <p class="caption"><b>The execution gap.</b> A naïve VLA assumes its commanded action <span class="eqn">a&#770;&#7827; = a&#770;&#7869;</span> is tracked exactly. In practice, tracking error, latency and actuator effects make executed motion diverge. <b>EA-VLA</b> conditions on execution feedback <span class="eqn">e&#770; = a&#770;&#7827; − a&#770;&#7869;</span> and produces compensated actions.</p>
+    </div>
+  </div>
+</section>
+
+<section id="idea">
+  <div class="wrap narrow" style="text-align:center">
+    <p class="kicker">TL;DR</p>
+    <h2>Actions predicted ≠ actions executed</h2>
+    <p class="lead">
+      Most VLAs treat the low-level execution interface as fixed and reliable. Real robots don't:
+      tracking error, latency, actuator saturation and calibration drift open an
+      <span class="hl">execution gap</span> that quietly breaks contact-rich tasks.
+      <strong>EA-VLA</strong> augments policy inference with execution-state feedback and adapts pretrained
+      VLAs through RL over randomized controller dynamics in simulation — learning to compensate for that gap.
+    </p>
+  </div>
+</section>
+
+<section style="background:var(--soft);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat"><div class="num">80.1%</div><div class="lbl">success under drift (σ=0.001)<br>vs. 51.1% for RL baseline</div></div>
+      <div class="stat"><div class="num">3×</div><div class="lbl">baseline success at the<br>training threshold (σ=0.01)</div></div>
+      <div class="stat"><div class="num">+11%</div><div class="lbl">real-world success rate<br>on the WidowX robot</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="method">
+  <div class="wrap">
+    <p class="kicker">Method</p>
+    <h2>Execution-aware RL fine-tuning</h2>
+    <div class="figure">
+      <img src="./static/images/method.png" alt="EA-VLA architecture">
+      <p class="caption">
+        A pretrained VLM + action expert is conditioned on robot state and <b>execution feedback</b>
+        <span class="eqn">e&#770; = a&#770;&#7827; − a&#770;&#7869;</span>, then fine-tuned with RL in ManiSkill under domain-randomized
+        controller dynamics — exposing the policy to a broad range of execution gaps without real-robot data.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="results" style="background:var(--soft);border-top:1px solid var(--line)">
+  <div class="wrap">
+    <p class="kicker">Results</p>
+    <h2>Robust across the execution gap</h2>
+
+    <div class="figure" style="margin-bottom:34px">
+      <img src="./static/images/robustness_curve.png" alt="Success rate vs randomization ratio" style="max-width:760px;margin:0 auto">
+      <p class="caption">
+        Success rate vs. execution-gap magnitude (randomization ratio σ). EA-VLA (green) degrades
+        gracefully where the baseline collapses — in both <b>simulation</b> (dotted) and on the <b>real robot</b> (solid).
+      </p>
+    </div>
+
+    <p class="tbl-title">ManiSkill simulation — success rate across randomization ratio σ</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Model</th><th class="sig">σ=0.0</th><th class="sig">σ=0.001</th><th class="sig">σ=0.005</th><th class="sig">σ=0.01</th><th class="sig">σ=0.02</th><th class="sig">σ=0.05</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Supervised baseline</td><td>48.7%</td><td>49.7%</td><td>14.2%</td><td>4.3%</td><td>2.9%</td><td>2.5%</td></tr>
+          <tr><td>RL, no execution gap</td><td class="best">83.4%</td><td>51.1%</td><td>11.2%</td><td>8.1%</td><td>4.4%</td><td>2.2%</td></tr>
+          <tr class="ours"><td>EA-VLA (Ours)</td><td>77.5%</td><td class="best">80.1%</td><td class="best">60.4%</td><td class="best">28.6%</td><td class="best">6.1%</td><td class="best">2.6%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">Baselines overfit to nominal dynamics and collapse under minor drift; EA-VLA stays robust across two orders of magnitude more perturbation.</p>
+
+    <div class="grid2" style="margin-top:38px">
+      <div>
+        <p class="tbl-title">Zero-shot sim-to-real (WidowX)</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Policy</th><th>Low gap</th><th>High gap</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Baseline</td><td>0.63</td><td>0.47</td></tr>
+              <tr class="ours"><td>EA-VLA</td><td class="best">0.66</td><td class="best">0.58</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-note">Under true proprioceptive feedback (high gap), the baseline degrades sharply while EA-VLA holds.</p>
+      </div>
+      <div>
+        <p class="tbl-title">Ablation — state-history length H</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>H</th><th class="sig">σ=0.0</th><th class="sig">σ=0.001</th><th class="sig">σ=0.005</th><th class="sig">σ=0.01</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>0 (none)</td><td class="best">83.4%</td><td>51.1%</td><td>11.2%</td><td>8.1%</td></tr>
+              <tr><td>1</td><td>70.3%</td><td>70.5%</td><td>51.7%</td><td>22.2%</td></tr>
+              <tr class="ours"><td>2 (default)</td><td>77.5%</td><td class="best">80.1%</td><td class="best">60.4%</td><td class="best">28.6%</td></tr>
+              <tr><td>4</td><td>76.3%</td><td>76.3%</td><td>60.3%</td><td>26.4%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-note">Execution awareness drives the gains; H=2 balances robustness and cost.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>Page template adapted from the <a href="https://github.com/nerfies/nerfies.github.io">Nerfies</a> project.</p>
+  </div>
+</footer>
+
+</body>
+</html>
