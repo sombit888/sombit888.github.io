@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPEAR-1: Scaling Beyond Robot Demonstrations via 3D Understanding</title>
+<meta name="description" content="SPEAR-1 is an open-weight robotic foundation model that learns 3D understanding from non-robotic images. It matches or beats π0-FAST and π0.5 while using 20× fewer robot demonstrations.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='7.5' fill='%234a4b9c'/%3E%3Cpath d='M4.5 11.5 8 4.5l3.5 7' stroke='%23fff' stroke-width='1.6' fill='none'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<nav class="site wrap"><a href="https://sombit888.github.io" title="Homepage" aria-label="Homepage"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 7.5 8 2l6 5.5"/><path d="M3.5 6.5v7.5h3.5v-4h2v4h3.5V6.5"/></svg></a></nav>
+
+<header class="wrap">
+  <h1><span class="name">SPEAR-1</span>: Scaling Beyond Robot Demonstrations via 3D Understanding</h1>
+  <p class="authors">
+    <a href="https://nikonikolov.github.io/">Nikolay Nikolov</a>,
+    <a href="https://giuliano-97.github.io/">Giuliano Albanese</a>,
+    <a class="me" href="https://sombit888.github.io/">Sombit Dey</a>,
+    <a href="https://insait.ai/aleksandar-yanev/">Aleksandar Yanev</a>,
+    <a href="https://insait.ai/prof-luc-van-gool/">Luc Van Gool</a>,
+    <a href="https://jannicozaech.github.io/">Jan-Nico Zaech</a>,
+    <a href="https://insait.ai/dr-danda-paudel/">Danda Pani Paudel</a>
+  </p>
+  <p class="affil"><a href="https://insait.ai/">INSAIT</a>, Sofia University “St. Kliment Ohridski”</p>
+  <p class="venue">CVPR 2026</p>
+  <nav class="buttons">
+    <a class="button" href="https://arxiv.org/pdf/2511.17411"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3.5 1.5h6l3 3v10h-9z"/><path d="M9.5 1.5v3h3M5.5 8h5M5.5 10.5h5"/></svg>Paper</a>
+    <a class="button" href="https://arxiv.org/abs/2511.17411"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 13.5 8 2.5l5 11M5 9.5h6"/></svg>arXiv</a>
+    <a class="button" href="https://huggingface.co/collections/INSAIT-Institute/spear"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 14 5v6l-6 3.5L2 11V5z"/><path d="M2 5l6 3.5L14 5M8 8.5v6"/></svg>Model weights</a>
+    <a class="button" href="https://spear.insait.ai/"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="6.5"/><path d="M1.5 8h13M8 1.5c-2.2 2-2.2 11 0 13M8 1.5c2.2 2 2.2 11 0 13"/></svg>spear.insait.ai</a>
+    <a class="button" href="#citation"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.5 3.5h11v9h-11z"/><path d="M5 6.5h6M5 9.5h4"/></svg>BibTeX</a>
+  </nav>
+  <p class="press">Featured in <a href="https://www.wired.com/story/this-open-source-robot-brain-thinks-in-3d/">WIRED: “This Open Source Robot Brain Thinks in 3D”</a></p>
+</header>
+
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#abstract">Abstract</a></li>
+    <li><a href="#video">Video</a></li>
+    <li><a href="#challenge">A flat view of a 3D world</a></li>
+    <li><a href="#method">How SPEAR-1 works</a>
+      <ol><li><a href="#stage1">Stage 1: SPEAR-VLM</a></li><li><a href="#stage2">Stage 2: SPEAR-1</a></li></ol></li>
+    <li><a href="#results">Results</a>
+      <ol><li><a href="#franka">Franka rollouts</a></li><li><a href="#widowx">WidowX rollouts</a></li></ol></li>
+    <li><a href="#next">Limitations and next steps</a></li>
+    <li><a href="#models">Model weights</a></li>
+    <li><a href="#citation">Citation</a></li>
+  </ol>
+</nav>
+
+<main class="wrap">
+
+<figure class="hero">
+  <video src="assets/video/hero.mp4" poster="assets/img/hero_poster.jpg" autoplay muted loop playsinline preload="auto"></video>
+  <figcaption>SPEAR-1 on a Franka arm in a kitchen, with no fine-tuning for this environment. The clips show it putting the
+  spoon in the drawer, closing the drawer, putting the marker in the cup and wiping a stain.</figcaption>
+</figure>
+
+<p class="tldr"><b>TL;DR:</b> We teach a 3B vision-language model to locate objects in 3D from a single image, using
+non-robotic images with 3D annotations that are cheap to make. We then train a robot policy on top of it. The resulting model,
+SPEAR-1, matches or beats π<sub>0</sub>-FAST and π<sub>0.5</sub> while using 20× fewer robot demonstrations. The weights are open.</p>
+
+<h2 class="center" id="abstract">Abstract</h2>
+<p class="abstract">Robotic Foundation Models (RFMs) hold great promise as generalist, end-to-end systems for robot control.
+Yet their ability to generalize across new environments, tasks, and embodiments remains limited. We argue that a major
+bottleneck lies in their foundations: most RFMs are built by fine-tuning internet-pretrained Vision-Language Models
+(VLMs). However, these VLMs are trained on 2D image-language tasks and lack the 3D spatial reasoning inherently required
+for embodied control in the 3D world. Bridging this gap directly with large-scale robotic data is costly and difficult to
+scale. Instead, we propose to enrich easy-to-collect non-robotic image data with 3D annotations and enhance a pretrained
+VLM with 3D understanding capabilities. Following this strategy, we train SPEAR-VLM, a 3D-aware VLM that infers object
+coordinates in 3D space from a single 2D image. Building on SPEAR-VLM, we introduce our main contribution,
+<b>SPEAR-1</b>: a robotic foundation model that integrates grounded 3D perception with language-instructed embodied
+control. Trained on ∼45M frames from 24 Open X-Embodiment datasets, SPEAR-1 outperforms or matches state-of-the-art
+models such as π<sub>0</sub>-FAST and π<sub>0.5</sub>, while it uses 20× fewer robot demonstrations. This
+carefully-engineered training strategy unlocks new VLM capabilities and as a consequence boosts the reliability of
+embodied control beyond what is achievable with only robotic data. We make our model weights and 3D-annotated datasets
+publicly available.</p>
+
+<!-- ============================================================ VIDEO -->
+<h2 class="center" id="video">Video</h2>
+<figure>
+  <video src="assets/video/overview.mp4" poster="assets/img/overview_poster.jpg" controls playsinline preload="none"></video>
+  <figcaption>The SPEAR-1 overview video (80&nbsp;s, with sound). Clips marked “Autonomous execution” are SPEAR-1
+  controlling the robot, played at 4× speed.</figcaption>
+</figure>
+
+<!-- ============================================================ CHALLENGE -->
+<section id="challenge" class="text">
+  <h2>A flat view of a 3D world</h2>
+  <p>A robotic foundation model takes camera images and an instruction in plain language, and outputs the motor commands
+  that complete the task. Unlike today's specialized robots, it should work in new environments and on different robots
+  without being programmed again for every task.</p>
+  <p>Most of these models are vision-language-action models (VLAs). They are built from three parts:</p>
+  <ul>
+    <li>a large language model, which brings reasoning and knowledge about the world;</li>
+    <li>a vision module that understands 2D images and, together with the language model, forms a vision-language model (VLM);</li>
+    <li>a control module that turns the VLM's understanding into 3D positions for the robot to move to.</li>
+  </ul>
+  <p>VLAs start from a pretrained VLM. These VLMs recognize and describe scenes very well, but they are essentially 2D. They do
+  not know how far apart two objects are or how big they are. A robot needs exactly this 3D geometry to act. In practice, VLAs
+  can look impressive in short videos and then fail as soon as object positions, layouts or backgrounds change.
+  SPEAR-1 is built to close this gap.</p>
+</section>
+
+<!-- ============================================================ METHOD -->
+<section id="method">
+  <div class="text">
+    <h2>How SPEAR-1 works</h2>
+    <p>We train SPEAR-1 in two stages. First, we extend a VLM from flat 2D pixels to the 3D world using openly available,
+    non-robotic data. This gives SPEAR-VLM. Then we attach a control module and train the whole model to imitate robot
+    movements recorded with human teleoperation. Each stage uses data that is more expensive to collect than the one before.</p>
+  </div>
+
+  <div class="stages">
+    <div class="stage">
+      <div class="k">Stage 0 · pretrained</div>
+      <div class="t">PaliGemma VLM</div>
+      <p class="d">Learns from web images and text. It can describe what is in an image, but only in 2D.</p>
+      <div class="c">Data: web image-text pairs · cost <b>low</b></div>
+    </div>
+    <div class="stage">
+      <div class="k">Stage 1</div>
+      <div class="t">SPEAR-VLM</div>
+      <p class="d">Adds a monocular depth encoder (MoGe) and learns to answer 3D questions: object coordinates, 3D boxes and distances.</p>
+      <div class="c">Data: ~200k non-robotic images with 3D labels · cost <b>medium</b></div>
+    </div>
+    <div class="stage">
+      <div class="k">Stage 2</div>
+      <div class="t">SPEAR-1</div>
+      <p class="d">Adds an action expert trained with flow matching to imitate teleoperated robot demonstrations.</p>
+      <div class="c">Data: ~45M frames from 24 Open X-Embodiment datasets · cost <b>high</b></div>
+    </div>
+  </div>
+
+  <div class="text">
+    <h3 id="stage1">Stage 1: teaching a VLM about 3D (SPEAR-VLM)</h3>
+    <p>VLMs such as GPT-5, Gemini or Claude are pretrained on web data, with tasks like answering questions about an image
+    or finding an object in it. That knowledge stays in the 2D image plane. We start from a smaller, 3-billion-parameter VLM
+    and add a depth model that estimates how far every pixel is from the camera. We then train it to answer geometric
+    questions such as <i>“Provide the 3D bounding box coordinates of the bowl”</i> or <i>“Estimate the x, y, z distance
+    between the mug and the spoon”</i>. To answer, SPEAR-VLM has to find the object from its description, estimate its 3D
+    coordinates and reason about distances between objects.</p>
+  </div>
+
+  <figure>
+    <div class="grid2">
+      <div class="tile vlm"><img src="assets/img/vlm_3d_input.jpg" alt="A kitchen counter with a mug, a bowl, fruit, a pepper mill and a bottle." loading="lazy"><div class="head">Input: a single RGB image</div></div>
+      <div class="tile vlm"><video src="assets/video/vlm_3d_output.mp4" autoplay muted loop playsinline aria-label="A 3D view of the counter with a blue box drawn around the mug."></video><div class="head">Output: the 3D box of the cup, shown in a 3D view of the scene</div></div>
+    </div>
+    <div class="qa text">
+      <p class="a"><b>SPEAR-VLM</b>The 3D bounding box of the cup has coordinates: [0.3, 0.7, 0.24], [-0.05, 0.1, 0.24], …</p>
+    </div>
+    <figcaption>SPEAR-VLM answers 3D questions about a single image with coordinates. This kind of training data is much cheaper than
+    robot data. With only 200k 3D-annotated images, SPEAR-1 outperforms robot models trained on more than 900M additional
+    frames of robot demonstrations.</figcaption>
+  </figure>
+
+  <div class="text">
+    <h3 id="stage2">Stage 2: from 3D understanding to actions (SPEAR-1)</h3>
+    <p>SPEAR-VLM outputs language. To control a robot, we attach a control module that outputs motor commands and 3D target
+    positions in real time. We train it with flow matching, a variant of diffusion models, to imitate trajectories that people
+    recorded by teleoperating robots through each task many times. Because the backbone already understands 3D, SPEAR-1
+    needs about 20× fewer robot demonstrations than comparable models.</p>
+  </div>
+
+  <figure class="narrow">
+    <div class="tile dark"><video src="assets/video/robot_trajectory.mp4" autoplay muted loop playsinline aria-label="A 3D view of the robot arm above the counter, with its gripper path drawn as blue dots."></video></div>
+    <figcaption>A robot trajectory, shown as the gripper's path (blue) in a 3D view of the scene. This is the kind of output Stage 2 learns to produce.</figcaption>
+  </figure>
+</section>
+
+<!-- ============================================================ RESULTS -->
+<section id="results">
+  <div class="text">
+    <h2>Results</h2>
+    <p>All evaluations are zero-shot: we fine-tune neither SPEAR-1 nor the baselines for the test tasks or environments.
+    On a Franka arm in the DROID setup we compare with Physical Intelligence's
+    <a href="https://www.physicalintelligence.company/research/fast">π<sub>0</sub>-FAST</a> and
+    <a href="https://www.physicalintelligence.company/blog/pi05">π<sub>0.5</sub></a>. Both are trained on at least 900M
+    more robot frames, collected in more diverse environments, than SPEAR-1's ~45M, but neither uses 3D pretraining.
+    π<sub>0</sub>-FAST and π<sub>0.5</sub> are not available for WidowX, so on that robot we compare with OpenVLA, a model about
+    twice SPEAR-1's size, and SpatialVLA.</p>
+  </div>
+
+  <figure>
+    <img src="assets/img/results.png" alt="Bar charts. Franka: SPEAR-1 72.7, π0.5 64.3, π0-FAST 13.7. WidowX: SPEAR-1 78.8, OpenVLA 68.3, SpatialVLA 9.6. SIMPLER WidowX: SPEAR-1 57.3, SpatialVLA 42.7, OpenVLA 1.0. Below, photos of four evaluation setups." loading="lazy">
+    <figcaption>Top: average task progress (%) on the real Franka and WidowX robots, and success rate (%) in the SIMPLER WidowX
+    simulation. Bottom: sample evaluation environments.</figcaption>
+  </figure>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th class="l">Setup</th><th class="ours">SPEAR-1</th><th>π<sub>0.5</sub></th><th>π<sub>0</sub>-FAST</th><th>OpenVLA</th><th>SpatialVLA</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="l">Franka (DROID), real<span class="note">avg. task progress, 5 tasks, 75 trials per model</span></td><td class="ours">72.7</td><td>64.3</td><td>13.7</td><td class="na">–</td><td class="na">–</td></tr>
+        <tr><td class="l">WidowX (Bridge), real<span class="note">avg. task progress, 5 tasks, 60 trials per model</span></td><td class="ours">78.8</td><td class="na">–</td><td class="na">–</td><td>68.3</td><td>9.6</td></tr>
+        <tr><td class="l">SIMPLER WidowX, simulation<span class="note">avg. success rate, 4 tasks</span></td><td class="ours">57.3</td><td class="na">–</td><td class="na">–</td><td>1.0</td><td>42.7</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="tcap">Numbers are from the paper (arXiv v2). Task progress gives partial credit for each step of a task. Each task is run from
+  several starting layouts, three trials each. SpatialVLA's SIMPLER result is taken from its paper.</p>
+
+  <div class="text">
+    <p>On Franka, SPEAR-1 reaches about 5× the task progress of π<sub>0</sub>-FAST, which shares its π<sub>0</sub>-style
+    architecture. It also matches π<sub>0.5</sub>, which adds architectural improvements and high-level subtask prediction and
+    is trained in at least 5× more environments. On WidowX, SPEAR-1 outperforms OpenVLA, which shows that it carries
+    over to a different robot. Together, these results suggest that 3D knowledge about the world can substitute for a large
+    share of robot data.</p>
+  </div>
+
+  <div class="text">
+  <h3 id="franka">Franka rollouts</h3>
+  <p>VLAs often fail when a target object moves, for example when the carrot sits left or right of the robot in
+  “Put the carrot on the blue plate”. We move target objects both horizontally and vertically. Some tasks need fine 3D
+  positioning: in “Put the marker in the cup” the marker lies flat on the table, and the trial only succeeds if it ends up
+  inside the cup.</p>
+  </div>
+  <div class="grid3">
+    <div class="tile"><video src="assets/video/episodes/wipe-the-stain.mp4" autoplay muted loop playsinline></video><div class="head">Wipe the stain</div></div>
+    <div class="tile"><video src="assets/video/episodes/carrot-on-plate.mp4" autoplay muted loop playsinline></video><div class="head">Put the carrot on the blue plate</div></div>
+    <div class="tile"><video src="assets/video/episodes/close-the-drawer.mp4" autoplay muted loop playsinline></video><div class="head">Close the drawer</div></div>
+    <div class="tile"><video src="assets/video/episodes/marker-in-cup.mp4" autoplay muted loop playsinline></video><div class="head">Put the marker in the cup</div></div>
+    <div class="tile"><video src="assets/video/episodes/spoon-in-drawer.mp4" autoplay muted loop playsinline></video><div class="head">Put the spoon in the drawer</div></div>
+    <div class="tile"><video src="assets/video/episodes/cover-the-pot.mp4" autoplay muted loop playsinline></video><div class="head">Cover the pot</div></div>
+  </div>
+
+  <div class="text">
+  <h3 id="widowx">WidowX rollouts</h3>
+  <p>The same SPEAR-1 recipe on a different arm, the WidowX, set up like Bridge V2 with a single external camera.</p>
+  </div>
+  <div class="grid3">
+    <div class="tile"><video src="assets/video/episodes/widowx-chess-piece-on-chessboard.mp4" autoplay muted loop playsinline></video><div class="head">Put the piece on the chessboard</div></div>
+    <div class="tile"><video src="assets/video/episodes/widowx-corn-between-cups.mp4" autoplay muted loop playsinline></video><div class="head">Put the corn between the cups</div></div>
+    <div class="tile"><video src="assets/video/episodes/widowx-eggplant-in-pot.mp4" autoplay muted loop playsinline></video><div class="head">Put the eggplant in the pot</div></div>
+    <div class="tile"><video src="assets/video/episodes/widowx-pink-cup-on-blue-cup.mp4" autoplay muted loop playsinline></video><div class="head">Put the pink cup on the blue cup</div></div>
+    <div class="tile"><video src="assets/video/episodes/widowx-pink-cup-on-blue-plate.mp4" autoplay muted loop playsinline></video><div class="head">Put the pink cup on the blue plate</div></div>
+  </div>
+</section>
+
+<!-- ============================================================ NEXT -->
+<section id="next" class="text">
+  <h2>Limitations and next steps</h2>
+  <ul>
+    <li>The 3D pretraining is not well suited to deformable objects or objects with complex shapes. Other 3D priors, such
+    as rotation estimation or collision detection, could capture their geometry better.</li>
+    <li>The 3D box labels come from MoGe's affine-invariant depth, so they are not in metric space. Ground-truth point clouds
+    or metric depth estimators could fix this.</li>
+    <li>We do not yet know how robot performance scales with the amount and quality of 3D pretraining data.</li>
+    <li>SPEAR-1 still needs fine-tuning on a new robot embodiment to work well. It remains to be seen how it compares to
+    models such as π<sub>0.5</sub> across many more tasks and environments.</li>
+  </ul>
+  <p>More broadly, robotic foundation models still have a long way to go: long-horizon planning, autonomous
+  self-improvement and completing unseen tasks. We believe other cheap sources of data can bring gains similar to those
+  3D data brought here. If you are interested in collaborating, please <a href="https://insait.ai/contact/">reach out</a>.</p>
+</section>
+
+<!-- ============================================================ MODELS -->
+<section id="models" class="text">
+  <h2>Model weights</h2>
+  <p>SPEAR-1 weights are on Hugging Face in the
+  <a href="https://huggingface.co/collections/INSAIT-Institute/spear">INSAIT-Institute SPEAR collection</a>, starting with
+  <a href="https://huggingface.co/INSAIT-Institute/spear1-franka"><code>spear1-franka</code></a>. See the
+  <a href="https://spear.insait.ai/">official project page</a> for the latest releases.</p>
+</section>
+
+<!-- ============================================================ CITATION -->
+<section id="citation" class="text">
+  <h2>Citation</h2>
+<pre><code>@misc{nikolov2026spear1scalingrobotdemonstrations,
+  title={SPEAR-1: Scaling Beyond Robot Demonstrations via 3D Understanding},
+  author={Nikolay Nikolov and Giuliano Albanese and Sombit Dey and Aleksandar Yanev and Luc Van Gool and Jan-Nico Zaech and Danda Pani Paudel},
+  year={2026},
+  eprint={2511.17411},
+  archivePrefix={arXiv},
+  primaryClass={cs.RO},
+  url={https://arxiv.org/abs/2511.17411},
+}</code></pre>
+
+  <h3>Acknowledgments</h3>
+  <p>We thank our INSAIT colleagues for helpful discussions and support:
+  <a href="https://insait.ai/prof-martin-vechev/">Martin Vechev</a>,
+  <a href="https://insait.ai/alexander-mark-spiridonov/">Alexander-Marc Spiridonov</a>,
+  <a href="https://insait.ai/anna-maria-halacheva/">Anna-Maria Halacheva</a>,
+  <a href="https://insait.ai/hristo-venev/">Hristo Venev</a>,
+  <a href="https://insait.ai/kamen-pavlov/">Kamen Pavlov</a> and
+  <a href="https://insait.ai/borislav-petrov/">Borislav Petrov</a>.</p>
+</section>
+
+</main>
+
+<footer class="wrap">Videos and figures from the official project page at <a href="https://spear.insait.ai/">spear.insait.ai</a> by INSAIT Robotics.</footer>
+
+</body>
+</html>
