@@ -1,0 +1,15 @@
+---
+layout: post
+title:  "AR-VLA: Autoregressive Action Expert for Vision-Language-Action Models"
+date:   2026-03-10 18:03:29 +00:00
+image: /images/ARVLA.png
+categories: research
+author: "Sombit Dey"
+authors: "Yutong Hu, Jan-Nico Zaech, Nikolay Nikolov, Yuanqi Yao, <strong>Sombit Dey</strong>, Giuliano Albanese, Renaud Detry, Luc Van Gool, Danda Paudel"
+venue: "RSS 2026"
+arxiv: https://arxiv.org/abs/2603.10126
+code: https://github.com/insait-institute/AR-VLA-lerobot
+weights: https://huggingface.co/collections/INSAIT-Institute/ar-vla
+website: https://arvla.insait.ai/
+---
+We replace the chunk-based action head of a VLA with a standalone autoregressive action expert that keeps a long-lived memory of its own actions while attending to vision-language features that refresh asynchronously. AR-VLA produces smoother trajectories, remembers task state that is no longer visible, and matches or beats chunk-based VLAs in SIMPLER and on a real WidowX robot.
