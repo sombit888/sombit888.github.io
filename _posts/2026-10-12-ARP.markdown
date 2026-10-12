@@ -1,0 +1,12 @@
+---
+layout: post
+title:  "Asynchronous Robot Policies"
+date:   2026-10-12 00:00:00 +00:00
+image: /images/ARP.png
+categories: research
+author: "Sombit Dey"
+authors: "Anonymous authors"
+venue: "arXiv preprint, 2026"
+website: https://sombit888.github.io/ARP/
+---
+We run the large vision-language model and the small action network of a robot policy as two separate processes. The robot reacts to every new camera frame without waiting for the large model, and the large model only needs to update now and then.

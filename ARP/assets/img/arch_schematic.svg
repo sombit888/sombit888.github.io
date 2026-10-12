@@ -1,0 +1,184 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1290" height="890" viewBox="0 0 1290 890" role="img" aria-label="Two towers. Left, the semantic expert: an image and a task prompt are embedded by a frozen shared ViT and a text embedding, pass through L LoRA-adapted LLM blocks, and the keys and values of eight tapped layers are projected by a cache adapter into a memory M. Right, the vision-action expert: fresh camera tokens from the same frozen ViT, proprioception, learned registers and a noisy action chunk are concatenated and pass through N blocks of adaRMS-conditioned self-attention, cross-attention to M, and a feed-forward layer, then an RMSNorm and a linear layer output the flow velocity, integrated with five Euler steps into an action chunk. The adaRMS layers are conditioned on the flow step, cache staleness and delay.">
+<title>Semantic expert and vision-action expert</title>
+<rect width="1290" height="890" fill="#ffffff"/>
+<text x="300" y="30" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="17" font-weight="700" fill="#141414" text-anchor="middle">Semantic expert</text>
+<text x="300" y="50" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#5a5a5a" text-anchor="middle">vision-language model · slow loop, rate f₁</text>
+<text x="800" y="30" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="17" font-weight="700" fill="#141414" text-anchor="middle">Vision-action expert</text>
+<text x="800" y="50" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#5a5a5a" text-anchor="middle">flow-matching action expert · fast loop, rate f₂</text>
+<rect x="655" y="222" width="290" height="426" rx="14" fill="#f2f2f2" stroke="#a3a3a3" stroke-width="1.2"/>
+<text x="640" y="300" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="500" fill="#141414" text-anchor="end">N ×</text>
+<rect x="740" y="596" width="120" height="26" rx="9" fill="#fdeeb3" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="800" y="613.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">adaRMS</text>
+<polyline points="800,655 800,628.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="800,622 803.6,630 796.4,630" fill="#141414"/>
+<rect x="715" y="544" width="170" height="32" rx="9" fill="#f9cfa6" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="800" y="564.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">Self-attention</text>
+<polyline points="800,596 800,582.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="800,576 803.6,584 796.4,584" fill="#141414"/>
+<circle cx="800" cy="515" r="9" fill="#ffffff" stroke="#141414" stroke-width="1.2"/>
+<polyline points="795,515 805,515" fill="none" stroke="#141414" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="800,510 800,520" fill="none" stroke="#141414" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="800,544 800,530.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="800,524 803.6,532 796.4,532" fill="#141414"/>
+<polyline points="800,635 915,635 915,515 815.5,515" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="809,515 817,511.4 817,518.6" fill="#141414"/>
+<rect x="740" y="460" width="120" height="26" rx="9" fill="#fdeeb3" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="800" y="477.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">adaRMS</text>
+<polyline points="800,506 800,492.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="800,486 803.6,494 796.4,494" fill="#141414"/>
+<rect x="715" y="408" width="170" height="32" rx="9" fill="#f9cfa6" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="800" y="428.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">Cross-attention</text>
+<polyline points="800,460 800,446.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="800,440 803.6,448 796.4,448" fill="#141414"/>
+<circle cx="800" cy="379" r="9" fill="#ffffff" stroke="#141414" stroke-width="1.2"/>
+<polyline points="795,379 805,379" fill="none" stroke="#141414" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="800,374 800,384" fill="none" stroke="#141414" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="800,408 800,394.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="800,388 803.6,396 796.4,396" fill="#141414"/>
+<polyline points="800,499 915,499 915,379 815.5,379" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="809,379 817,375.4 817,382.6" fill="#141414"/>
+<rect x="740" y="324" width="120" height="26" rx="9" fill="#fdeeb3" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="800" y="341.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">adaRMS</text>
+<polyline points="800,370 800,356.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="800,350 803.6,358 796.4,358" fill="#141414"/>
+<rect x="715" y="272" width="170" height="32" rx="9" fill="#c3d9f0" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="800" y="292.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">Feed forward</text>
+<polyline points="800,324 800,310.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="800,304 803.6,312 796.4,312" fill="#141414"/>
+<circle cx="800" cy="243" r="9" fill="#ffffff" stroke="#141414" stroke-width="1.2"/>
+<polyline points="795,243 805,243" fill="none" stroke="#141414" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="800,238 800,248" fill="none" stroke="#141414" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="800,272 800,258.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="800,252 803.6,260 796.4,260" fill="#141414"/>
+<polyline points="800,363 915,363 915,243 815.5,243" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="809,243 817,239.4 817,246.6" fill="#141414"/>
+<rect x="740" y="174" width="120" height="28" rx="9" fill="#fdeeb3" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="800" y="192.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">RMSNorm</text>
+<polyline points="800,234 800,208.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="800,202 803.6,210 796.4,210" fill="#141414"/>
+<rect x="740" y="122" width="120" height="32" rx="9" fill="#dccfef" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="800" y="142.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">Linear</text>
+<polyline points="800,174 800,160.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="800,154 803.6,162 796.4,162" fill="#141414"/>
+<text x="870" y="143" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#5a5a5a" text-anchor="start">velocity u</text>
+<polyline points="800,122 800,98.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="800,92 803.6,100 796.4,100" fill="#141414"/>
+<text x="800" y="80" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">action chunk  (H × 7)</text>
+<text x="812" y="110" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#5a5a5a" text-anchor="start">Euler, 5 steps</text>
+<rect x="628.5" y="660" width="18" height="18" rx="2.6" fill="#cfe6c4" stroke="#3a3a3a" stroke-width="1.2"/>
+<rect x="650.5" y="660" width="18" height="18" rx="2.6" fill="#cfe6c4" stroke="#3a3a3a" stroke-width="1.2"/>
+<rect x="672.5" y="660" width="18" height="18" rx="2.6" fill="#cfe6c4" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="703" y="674" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#141414" text-anchor="middle">…</text>
+<rect x="715.5" y="660" width="18" height="18" rx="2.6" fill="#cfe6c4" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="681" y="697" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#5a5a5a" text-anchor="middle">image tokens</text>
+<rect x="773.5" y="660" width="18" height="18" rx="2.6" fill="#e6e6e6" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="782.5" y="697" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#5a5a5a" text-anchor="middle">proprio</text>
+<rect x="831.5" y="660" width="18" height="18" rx="2.6" fill="#dccfef" stroke="#3a3a3a" stroke-width="1.2"/>
+<rect x="853.5" y="660" width="18" height="18" rx="2.6" fill="#dccfef" stroke="#3a3a3a" stroke-width="1.2"/>
+<rect x="875.5" y="660" width="18" height="18" rx="2.6" fill="#dccfef" stroke="#3a3a3a" stroke-width="1.2"/>
+<rect x="897.5" y="660" width="18" height="18" rx="2.6" fill="#dccfef" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="873.5" y="697" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#5a5a5a" text-anchor="middle">registers ×4</text>
+<rect x="955.5" y="660" width="18" height="18" rx="2.6" fill="#ffffff" stroke="#3a3a3a" stroke-width="1.2" stroke-dasharray="2.2 2"/>
+<rect x="977.5" y="660" width="18" height="18" rx="2.6" fill="#ffffff" stroke="#3a3a3a" stroke-width="1.2" stroke-dasharray="2.2 2"/>
+<rect x="999.5" y="660" width="18" height="18" rx="2.6" fill="#ffffff" stroke="#3a3a3a" stroke-width="1.2" stroke-dasharray="2.2 2"/>
+<text x="1030" y="674" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#141414" text-anchor="middle">…</text>
+<rect x="1042.5" y="660" width="18" height="18" rx="2.6" fill="#ffffff" stroke="#3a3a3a" stroke-width="1.2" stroke-dasharray="2.2 2"/>
+<text x="1008" y="697" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#5a5a5a" text-anchor="middle">noisy actions + pos</text>
+<polyline points="628.5,655 1060.5,655" fill="none" stroke="#141414" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="619" y="748" width="124" height="32" rx="9" fill="#cfe6c4" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="681" y="762" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">Vision encoder</text>
+<text x="681" y="776" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#5a5a5a" text-anchor="middle">shared, frozen</text>
+<polyline points="681,748 681,712.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="681,706 684.6,714 677.4,714" fill="#141414"/>
+<text x="681" y="818" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#141414" text-anchor="middle">cameras  (agent, wrist)</text>
+<polyline points="681,804 681,786.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="681,780 684.6,788 677.4,788" fill="#141414"/>
+<text x="1160" y="800" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#141414" text-anchor="middle">flow step τ · staleness · delay</text>
+<polyline points="1160,786 1160,768.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="1160,762 1163.6,770 1156.4,770" fill="#141414"/>
+<rect x="1112" y="736" width="96" height="26" rx="9" fill="#e6e6e6" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="1160" y="753.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">Sinusoidal</text>
+<polyline points="1160,736 1160,706.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="1160,700 1163.6,708 1156.4,708" fill="#141414"/>
+<rect x="1112" y="674" width="96" height="26" rx="9" fill="#c3d9f0" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="1160" y="691.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">MLP</text>
+<polyline points="1160,674 1160,337" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1160,609 866.5,609" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="5 4"/>
+<polygon points="860,609 868,605.4 868,612.6" fill="#141414"/>
+<polyline points="1160,473 866.5,473" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="5 4"/>
+<polygon points="860,473 868,469.4 868,476.6" fill="#141414"/>
+<polyline points="1160,337 866.5,337" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="5 4"/>
+<polygon points="860,337 868,333.4 868,340.6" fill="#141414"/>
+<text x="1168" y="470" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#5a5a5a" text-anchor="start">scale, shift, gate</text>
+<rect x="155" y="408" width="290" height="292" rx="14" fill="#f2f2f2" stroke="#a3a3a3" stroke-width="1.2"/>
+<text x="140" y="560" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="14" font-weight="500" fill="#141414" text-anchor="end">L ×</text>
+<rect x="240" y="648" width="120" height="26" rx="9" fill="#fdeeb3" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="300" y="665.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">RMSNorm</text>
+<polyline points="300,707 300,680.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="300,674 303.6,682 296.4,682" fill="#141414"/>
+<rect x="215" y="596" width="170" height="32" rx="9" fill="#f9cfa6" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="300" y="616.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">Self-attention  (LoRA)</text>
+<polyline points="300,648 300,634.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="300,628 303.6,636 296.4,636" fill="#141414"/>
+<circle cx="300" cy="567" r="9" fill="#ffffff" stroke="#141414" stroke-width="1.2"/>
+<polyline points="295,567 305,567" fill="none" stroke="#141414" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="300,562 300,572" fill="none" stroke="#141414" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="300,596 300,582.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="300,576 303.6,584 296.4,584" fill="#141414"/>
+<polyline points="300,687 180,687 180,567 284.5,567" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="291,567 283,570.6 283,563.4" fill="#141414"/>
+<rect x="240" y="512" width="120" height="26" rx="9" fill="#fdeeb3" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="300" y="529.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">RMSNorm</text>
+<polyline points="300,558 300,544.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="300,538 303.6,546 296.4,546" fill="#141414"/>
+<rect x="215" y="460" width="170" height="32" rx="9" fill="#c3d9f0" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="300" y="480.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">Feed forward  (LoRA)</text>
+<polyline points="300,512 300,498.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="300,492 303.6,500 296.4,500" fill="#141414"/>
+<circle cx="300" cy="431" r="9" fill="#ffffff" stroke="#141414" stroke-width="1.2"/>
+<polyline points="295,431 305,431" fill="none" stroke="#141414" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="300,426 300,436" fill="none" stroke="#141414" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="300,460 300,446.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="300,440 303.6,448 296.4,448" fill="#141414"/>
+<polyline points="300,551 180,551 180,431 284.5,431" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="291,431 283,434.6 283,427.4" fill="#141414"/>
+<rect x="205" y="336" width="190" height="36" rx="9" fill="#dccfef" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="300" y="352" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">Cache adapter</text>
+<text x="300" y="366" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#5a5a5a" text-anchor="middle">LN · Linear · + position · + staleness</text>
+<polyline points="385,612 470,612 470,354 401.5,354" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="395,354 403,350.4 403,357.6" fill="#141414"/>
+<text x="478" y="500" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#5a5a5a" text-anchor="start">K, V of 8 tapped layers</text>
+<text x="196" y="358" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#5a5a5a" text-anchor="end">staleness  t − t₀</text>
+<polyline points="300,336 300,250 560,250 560,424 708.5,424" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="715,424 707,427.6 707,420.4" fill="#141414"/>
+<text x="312" y="300" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="start">Memory M   (S × 768)</text>
+<text x="707" y="418" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#5a5a5a" text-anchor="end">K, V</text>
+<rect x="196.5" y="712" width="18" height="18" rx="2.6" fill="#cfe6c4" stroke="#3a3a3a" stroke-width="1.2"/>
+<rect x="218.5" y="712" width="18" height="18" rx="2.6" fill="#cfe6c4" stroke="#3a3a3a" stroke-width="1.2"/>
+<rect x="240.5" y="712" width="18" height="18" rx="2.6" fill="#cfe6c4" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="271" y="726" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#141414" text-anchor="middle">…</text>
+<rect x="283.5" y="712" width="18" height="18" rx="2.6" fill="#cfe6c4" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="249" y="749" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5a5a5a" text-anchor="middle">image tokens</text>
+<rect x="365.5" y="712" width="18" height="18" rx="2.6" fill="#f6c3c3" stroke="#3a3a3a" stroke-width="1.2"/>
+<rect x="387.5" y="712" width="18" height="18" rx="2.6" fill="#f6c3c3" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="418" y="726" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="15" font-weight="400" fill="#141414" text-anchor="middle">…</text>
+<rect x="430.5" y="712" width="18" height="18" rx="2.6" fill="#f6c3c3" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="407" y="749" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="10.5" font-weight="400" fill="#5a5a5a" text-anchor="middle">text tokens</text>
+<polyline points="196.5,707 448.5,707" fill="none" stroke="#141414" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="458.5" y="724" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#5a5a5a" text-anchor="start">S = 288</text>
+<rect x="187" y="796" width="124" height="32" rx="9" fill="#cfe6c4" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="249" y="810" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">Vision encoder</text>
+<text x="249" y="824" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="10" font-weight="400" fill="#5a5a5a" text-anchor="middle">shared, frozen</text>
+<polyline points="249,796 249,764.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="249,758 252.6,766 245.4,766" fill="#141414"/>
+<text x="249" y="866" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#141414" text-anchor="middle">image  448²</text>
+<polyline points="249,852 249,834.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="249,828 252.6,836 245.4,836" fill="#141414"/>
+<rect x="345" y="796" width="124" height="32" rx="9" fill="#f6c3c3" stroke="#3a3a3a" stroke-width="1.2"/>
+<text x="407" y="816.5" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="13" font-weight="500" fill="#141414" text-anchor="middle">Text embedding</text>
+<polyline points="407,796 407,764.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="407,758 410.6,766 403.4,766" fill="#141414"/>
+<text x="407" y="866" font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="12.5" font-weight="400" fill="#141414" text-anchor="middle">task prompt</text>
+<polyline points="407,852 407,834.5" fill="none" stroke="#141414" stroke-width="1.25" stroke-linejoin="round" stroke-linecap="round"/>
+<polygon points="407,828 410.6,836 403.4,836" fill="#141414"/>
+</svg>

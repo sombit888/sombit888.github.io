@@ -12,3 +12,5 @@ Notes:
 - Main layout: _layouts/default.html; posts: _posts/; thumbnails: tn/images/.
 - Config: _config.yml (url/baseurl, plugins).
 - Static microsite: ReVLA/ with its own assets under ReVLA/static/.
+- Static microsite: ARP/ is a built copy of /media/sombit/Expansion/async_rp/website (edit and rebuild there, then sync with
+  `rsync -a --exclude tools/ --exclude README.md --exclude assets/data/ /media/sombit/Expansion/async_rp/website/ ARP/`).

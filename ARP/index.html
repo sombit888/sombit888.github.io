@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asynchronous Robot Policies</title>
+<meta name="description" content="Asynchronous Robot Policies run a robot's large vision-language model and its small action network as separate processes, so the robot reacts to new camera frames without waiting for the large model.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='9' width='6' height='6' fill='%232b5f9e'/%3E%3Crect x='9' y='1' width='6' height='14' fill='%238c8c8c'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<nav class="site wrap"><a href="https://sombit888.github.io" title="Homepage" aria-label="Homepage"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 7.5 8 2l6 5.5"/><path d="M3.5 6.5v7.5h3.5v-4h2v4h3.5V6.5"/></svg></a></nav>
+
+<header class="wrap">
+  <h1>Asynchronous Robot Policies</h1>
+  <p class="authors">Anonymous authors</p>
+  <p class="venue">arXiv preprint, 2026</p>
+  <nav class="buttons">
+    <a class="button" href="paper.pdf"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3.5 1.5h6l3 3v10h-9z"/><path d="M9.5 1.5v3h3M5.5 8h5M5.5 10.5h5"/></svg>Paper</a>
+    <span class="button off"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5.5 4 1.5 8l4 4M10.5 4l4 4-4 4"/></svg>Code (soon)</span>
+    <span class="button off"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.5 14 5v6l-6 3.5L2 11V5z"/><path d="M2 5l6 3.5L14 5M8 8.5v6"/></svg>Models (soon)</span>
+    <a class="button" href="#citation"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.5 3.5h11v9h-11z"/><path d="M5 6.5h6M5 9.5h4"/></svg>BibTeX</a>
+  </nav>
+</header>
+
+<nav class="toc" aria-label="Contents">
+  <ol>
+    <li><a href="#abstract">Abstract</a></li>
+    <li><a href="#why">Big models, slow reflexes</a></li>
+    <li><a href="#idea">Two processes, two speeds</a></li>
+    <li><a href="#stale">The catch: the memory is always out of date</a>
+      <ol><li><a href="#architecture">Architecture</a></li></ol></li>
+    <li><a href="#real">On a real robot</a>
+      <ol><li><a href="#rollouts">Every trial</a></li></ol></li>
+    <li><a href="#reactivity">When the scene changes</a>
+      <ol><li><a href="#lp-rollouts">LIBERO-Perturb rollouts</a></li><li><a href="#bump-rollouts">Dyn-Bump rollouts</a></li></ol></li>
+    <li><a href="#rate">Running the large model less often</a></li>
+    <li><a href="#robolab">A broad benchmark: RoboLab</a>
+      <ol><li><a href="#rl-rollouts">RoboLab rollouts</a></li></ol></li>
+    <li><a href="#libero">Does a bigger VLM help?</a></li>
+    <li><a href="#limitations">Limitations</a></li>
+    <li><a href="#models">Code and models</a></li>
+    <li><a href="#citation">Citation</a></li>
+  </ol>
+</nav>
+
+<main class="wrap">
+
+<figure class="hero">
+  <div class="hero-labels"><div>ARP-3B (ours)</div><div>π0.5-DROID</div></div>
+  <video src="assets/video/hero_vegetables_trial1_4x.mp4" poster="assets/img/hero_poster.jpg" autoplay muted loop playsinline controls preload="auto"></video>
+  <figcaption>“Put the vegetables in the bowl.” The first trial of each policy, uncut, at 4× speed. The clock shows real time.
+  ARP finished in 67&nbsp;s. π0.5-DROID had placed 1 of 5 vegetables when the episode limit
+  was reached at 82&nbsp;s. ARP's lead was largest on this task, and π0.5-DROID did better on cup stacking.
+  All 60 trials are in the <a href="#real">real-robot section</a>.</figcaption>
+</figure>
+
+<p class="tldr"><b>TL;DR:</b> We run the large vision-language model and the small action network of a robot policy as two
+separate processes. The robot reacts to every new camera frame without waiting for the large model, and the large model
+only needs to update now and then.</p>
+
+<h2 class="center" id="abstract">Abstract</h2>
+<p class="abstract">Vision-language-action models (VLAs) control robots by running a vision-language model (VLM) and an
+action expert one after the other for every chunk of actions. The time from observation to action therefore grows with
+the size of the VLM, which matters whenever the scene changes while the robot is moving. We propose Asynchronous Robot
+Policies (ARP), which run the two parts as independent processes at different rates. The VLM periodically writes a
+fixed-size semantic memory. A lightweight vision-action expert with its own camera input reads the most recent memory
+and produces actions at a high rate. Because that memory is always somewhat out of date, we train the expert on memories
+of varying age and condition it on that age and on its own execution delay. In simulation, when the target object is
+moved during the reach, ARP-1B succeeds in 51.5% of episodes against 9.5% for a π0-style baseline with
+the same backbone. On LIBERO it keeps 79.0% success with the VLM refreshed only once every 4 seconds, where the
+baseline drops to 45.3%. On a Franka robot, a DROID-trained ARP-3B reaches
+78, 73 and 80% task progress on three tasks, against
+32, 80 and 50% for π0.5-DROID.
+On the broader RoboLab benchmark it remains well behind π0.5-DROID (20.0 vs 37.9%).</p>
+
+<!-- ============================================================ PROBLEM -->
+<section id="why" class="text">
+  <h2>Big models, slow reflexes</h2>
+  <p>Most general-purpose robot policies today are built on vision-language models, the kind of neural network that
+  can describe an image or answer questions about it. A vision-language-action model (VLA), such as π0 or π0.5, adds an
+  action expert: a smaller network that turns the VLM's understanding of the scene and the instruction into motor
+  commands. At every step the robot takes a picture, runs the VLM, runs the action expert, and executes a short chunk of
+  motions before repeating.</p>
+  <p>This loop works when nothing moves. A plan made half a second ago is still a good plan if the cup is where it was.
+  It breaks down when the world changes during the motion, for example when an object gets nudged or a ball rolls. The
+  robot keeps executing a plan based on an old picture, and the next plan has to wait for the VLM again. A larger VLM
+  understands more, and it also makes this wait longer.</p>
+</section>
+<figure>
+  <img src="assets/img/async_policy_teaser.svg" alt="Left: a VLA runs the VLM and the action expert in sequence at one rate. Right: ARP runs the VLM at a low rate f1 and the vision-action expert at a high rate f2, reading every camera frame." loading="lazy">
+  <figcaption><b>Left:</b> a VLA runs the VLM and the action expert in sequence, so the delay from a new image to an action
+  is <i>t</i><sub>VLM</sub> + <i>t</i><sub>AE</sub>. <b>Right:</b> ARP runs them in separate loops at rates <i>f</i><sub>1</sub> and <i>f</i><sub>2</sub>.
+  The action expert reads every new image itself, so the loop that reacts to the scene only contains the small network.</figcaption>
+</figure>
+
+<!-- ============================================================ IDEA -->
+<section id="idea" class="text">
+  <h2>Two processes, two speeds</h2>
+  <p>ARP splits the policy into two processes that never wait for each other. The large VLM, which we call the semantic
+  expert, looks at the camera image and the instruction from time to time and writes what it has understood into a
+  memory of fixed size. A much smaller vision-action expert runs continuously. Each time it is called, it looks at the
+  current camera images, reads whichever memory is newest, and outputs the next actions.</p>
+  <p>The fast loop never runs the VLM, so the robot's reaction time no longer depends on how big the VLM is. On one RTX
+  A6000 GPU, a VLM call takes 64&nbsp;ms at 1B parameters and 120&nbsp;ms at 8B, while the action expert
+  takes about 61&nbsp;ms at every size:</p>
+  <div class="tablewrap"><table><thead><tr><th class="l">VLM size</th><th class="l">Language model</th><th>Large model (VLM)</th><th>Action expert</th><th>Both in sequence</th></tr></thead><tbody><tr><td class="l">1B</td><td class="l">Qwen3-0.6B</td><td>64 ms</td><td>60 ms</td><td class="sub">124 ms</td></tr><tr><td class="l">2B</td><td class="l">Qwen3-1.7B</td><td>64 ms</td><td>62 ms</td><td class="sub">126 ms</td></tr><tr><td class="l">4B</td><td class="l">Qwen3-4B</td><td>87 ms</td><td>61 ms</td><td class="sub">148 ms</td></tr><tr><td class="l">8B</td><td class="l">Qwen3-8B</td><td>120 ms</td><td>61 ms</td><td class="sub">181 ms</td></tr></tbody></table></div>
+  <p class="tcap">Simulation models, median of 100 calls, bf16, batch size 1. The last column is the delay per action chunk
+  of a VLA built from the same two parts.</p>
+</section>
+
+<figure>
+<div class="chart-scroll"><svg viewBox="0 0 900 236" role="img" aria-label="Timeline of the two loops over 44 control steps">
+  <g font-size="12.5" fill="var(--ink-2)">
+    <text x="0" y="38">Camera, 20 Hz</text>
+    <text x="0" y="76">VLM, 1 Hz</text>
+    <text x="0" y="122">Memory in use</text>
+    <text x="0" y="164">Action expert, 5 Hz</text>
+  </g>
+  <g stroke="var(--rule-2)">
+    <path d="M128 28v14M145 28v14M162 28v14M179 28v14M196 28v14M213 28v14M230 28v14M247 28v14M264 28v14M281 28v14M298 28v14M315 28v14M332 28v14M349 28v14M366 28v14M383 28v14M400 28v14M417 28v14M434 28v14M451 28v14M468 28v14M485 28v14M502 28v14M519 28v14M536 28v14M553 28v14M570 28v14M587 28v14M604 28v14M621 28v14M638 28v14M655 28v14M672 28v14M689 28v14M706 28v14M723 28v14M740 28v14M757 28v14M774 28v14M791 28v14M808 28v14M825 28v14M842 28v14M859 28v14M876 28v14"/>
+  </g>
+  <g fill="var(--arp)">
+    <rect x="128" y="62" width="34" height="20"/><rect x="468" y="62" width="34" height="20"/><rect x="808" y="62" width="34" height="20"/>
+  </g>
+  <g font-size="11.5" fill="var(--ink-2)">
+    <text x="168" y="76">reads frame 0</text><text x="508" y="76">reads frame 20</text><text x="848" y="76">f. 40</text>
+  </g>
+  <rect x="162" y="108" width="340" height="20" fill="#dfe8f4" stroke="var(--arp-2)"/>
+  <rect x="502" y="108" width="340" height="20" fill="#eef3f9" stroke="var(--arp-2)"/>
+  <rect x="842" y="108" width="40" height="20" fill="#dfe8f4" stroke="var(--arp-2)"/>
+  <g font-size="11.5" fill="var(--ink-2)"><text x="170" y="122">memory from frame 0</text><text x="510" y="122">memory from frame 20</text></g>
+  <g stroke="var(--ink)" stroke-width="2">
+    <path d="M196 150v20M264 150v20M332 150v20M400 150v20M468 150v20M536 150v20M604 150v20M672 150v20M740 150v20M808 150v20M876 150v20"/>
+  </g>
+  <g font-size="11.5" fill="var(--muted)" text-anchor="middle">
+    <text x="196" y="188">age 4</text><text x="264" y="188">8</text><text x="332" y="188">12</text><text x="400" y="188">16</text><text x="468" y="188">20</text>
+    <text x="536" y="188">4</text><text x="604" y="188">8</text><text x="672" y="188">12</text><text x="740" y="188">16</text><text x="808" y="188">20</text><text x="876" y="188">4</text>
+  </g>
+  <line x1="128" x2="880" y1="206" y2="206" stroke="var(--rule-2)"/>
+  <g font-size="11.5" fill="var(--faint)" text-anchor="middle">
+    <text x="128" y="224">step 0</text><text x="298" y="224">10</text><text x="468" y="224">20 (1 s)</text><text x="638" y="224">30</text><text x="808" y="224">40 (2 s)</text>
+  </g>
+</svg></div>
+<figcaption><b>The two loops over two seconds</b> (ARP-1B in simulation, VLM refreshed once per second). Every 4 control
+steps the action expert takes the newest camera frames and the newest finished memory. The age of that memory, between
+4 and 20 steps here, is one of the expert's inputs.</figcaption>
+</figure>
+
+<!-- ============================================================ CATCH -->
+<section id="stale">
+<div class="text">
+  <h2>The catch: the memory is always out of date</h2>
+  <p>Running the two processes independently has a price. The memory the action expert reads was computed from an older
+  image, sometimes a fifth of a second old and sometimes several seconds. A model that only saw fresh memories during
+  training does not cope with that.</p>
+  <p>We deal with this in training. Each training example pairs the current camera frames of a demonstration with a
+  memory computed from an earlier frame of the same demonstration, up to 2&nbsp;s earlier, and the action expert is told how
+  old the memory is. The table shows what this does. Every row is the same architecture trained on the same LIBERO data.
+  Only the memory ages seen in training differ. The columns are how often the VLM refreshes the memory at test time.</p>
+  <div class="tablewrap"><table><thead><tr><th class="l">Memory age seen in training</th><th>fresh</th><th>5 Hz</th><th>2.5 Hz</th><th>1 Hz</th><th>0.5 Hz</th><th>0.25 Hz</th></tr></thead><tbody><tr><td class="l">always fresh (<i>d</i> = 0)</td><td>81.8</td><td>63.0</td><td>23.5</td><td>4.8</td><td>2.0</td><td class="sub">–</td></tr><tr><td class="l">up to 0.4 s (<i>d</i> ≤ 8 steps)</td><td>79.5</td><td>81.5</td><td>56.8</td><td>11.8</td><td>5.0</td><td class="sub">–</td></tr><tr class="ours"><td class="l">up to 2 s (<i>d</i> ≤ 40, default)</td><td>85.3</td><td>83.3</td><td>84.8</td><td>82.0</td><td>81.8</td><td>79.0</td></tr><tr><td class="l">up to 4 s (<i>d</i> ≤ 80)</td><td>81.0</td><td>84.5</td><td>87.5</td><td>87.5</td><td>86.5</td><td>84.0</td></tr></tbody></table></div>
+  <p class="tcap">Success rate (%), 400 LIBERO episodes per cell. Trained only on fresh memories, the model does well with fresh
+  memories (81.8%) and fails when the VLM refreshes at 0.5&nbsp;Hz (2.0%). Trained on memories up to 2&nbsp;s
+  old, it keeps 81.8% at 0.5&nbsp;Hz. Even older training memories help further at the slowest rates.</p>
+</div>
+
+<h3 class="text" id="architecture">Architecture</h3>
+<figure>
+  <img src="assets/img/arch_schematic.svg" alt="Architecture: the semantic expert (VLM) writes keys and values of 8 layers through a cache adapter into a fixed-size memory M. The vision-action expert cross-attends to M in every block, reads its own image tokens and proprioception, and is conditioned on the flow time, the memory's staleness and its own delay through adaptive RMS norm." loading="lazy">
+</figure>
+<div class="text">
+  <p><b>Semantic expert.</b> In simulation this is InternVL3.5 at 1B to 14B parameters, and on DROID it is PaliGemma-3B. It
+  reads one image and the instruction. We take the keys and values of 8 of its layers. A LayerNorm and a linear
+  projection map them to a memory <i>M</i> with a fixed number of 768-wide tokens. We then add a position embedding and an
+  embedding of the memory's age. <i>M</i> has the same shape for every VLM, so nothing downstream changes when the VLM does.</p>
+  <p><b>Vision-action expert.</b> A 12-block transformer (183M parameters in simulation). It encodes the current external
+  and wrist images and cross-attends to <i>M</i> in every block. It predicts a 20-step action chunk by flow matching with 5
+  Euler steps. Adaptive RMS normalisation conditions every block on the flow time, the memory age <i>d</i> and the expert's own
+  execution delay ℓ.</p>
+  <p><b>Training.</b> The memory age is sampled as <i>d</i> ~ 0.2·δ<sub>0</sub> + 0.8·U{1,&nbsp;…,&nbsp;40} control steps. The expert also learns to continue a
+  given prefix of actions, as in real-time chunking, so consecutive chunks join smoothly.</p>
+</div>
+</section>
+
+<!-- ============================================================ REAL ROBOT -->
+<section id="real">
+<div class="text">
+  <h2>On a real robot</h2>
+  <p>We compared ARP with π0.5-DROID, a strong, openly available VLA from Physical Intelligence. The robot is a Franka
+  FR3 arm in the DROID setup, with one camera facing the table and one on the wrist, and inference runs on one RTX
+  A6000. Our model, ARP-3B, uses PaliGemma-3B as the large model and a vision-action expert built on DINOv3 image
+  features. It was trained only on the public DROID dataset. π0.5-DROID was, in addition, pre-trained by its authors on a
+  larger robot dataset that is not public. ARP ran asynchronously, and the action expert continued from the last 8 actions
+  it had committed to.</p>
+  <p>Each policy attempted each of three tasks 10 times, with a limit of 900 control steps, about 90&nbsp;s. We score the final
+  state: the fraction of objects in the bowl, or of cups nested.</p>
+</div>
+<figure>
+  <div class="grid3"><div class="tile"><div class="head">Put the vegetables in the bowl</div><div class="taskimg"><img src="assets/img/task_put_the_vegetables_in_the_bowl_external.jpg" alt="Put the vegetables in the bowl: external camera at the start" loading="lazy"><img src="assets/img/task_put_the_vegetables_in_the_bowl_wrist.jpg" alt="Put the vegetables in the bowl: wrist camera at the start" loading="lazy"></div><div style="margin:4px 0 10px">Scoring: 5 vegetables, 0.2 per object.</div><svg viewBox="0 0 320 150" role="img" aria-label="Per-trial progress, ARP-3B and π0.5-DROID">
+<line x1="82.0" x2="82.0" y1="6" y2="130" stroke="var(--rule)" />
+<text x="82.0" y="145" font-size="11.5" fill="var(--faint)" text-anchor="middle">0%</text>
+<line x1="138.5" x2="138.5" y1="6" y2="130" stroke="var(--rule)" />
+<text x="138.5" y="145" font-size="11.5" fill="var(--faint)" text-anchor="middle">25%</text>
+<line x1="195.0" x2="195.0" y1="6" y2="130" stroke="var(--rule)" />
+<text x="195.0" y="145" font-size="11.5" fill="var(--faint)" text-anchor="middle">50%</text>
+<line x1="251.5" x2="251.5" y1="6" y2="130" stroke="var(--rule)" />
+<text x="251.5" y="145" font-size="11.5" fill="var(--faint)" text-anchor="middle">75%</text>
+<line x1="308.0" x2="308.0" y1="6" y2="130" stroke="var(--rule)" />
+<text x="308.0" y="145" font-size="11.5" fill="var(--faint)" text-anchor="middle">100%</text>
+<text x="0" y="42" font-size="13" fill="var(--ink-2)">ARP-3B</text>
+<circle cx="308.0" cy="25.4" r="3.8" fill="var(--arp)" />
+<circle cx="262.8" cy="29.6" r="3.8" fill="var(--arp)" />
+<circle cx="172.4" cy="33.8" r="3.8" fill="var(--arp)" />
+<circle cx="262.8" cy="38.0" r="3.8" fill="var(--arp)" />
+<circle cx="262.8" cy="46.4" r="3.8" fill="var(--arp)" />
+<circle cx="308.0" cy="33.8" r="3.8" fill="var(--arp)" />
+<circle cx="217.6" cy="38.0" r="3.8" fill="var(--arp)" />
+<circle cx="308.0" cy="42.2" r="3.8" fill="var(--arp)" />
+<circle cx="172.4" cy="42.2" r="3.8" fill="var(--arp)" />
+<circle cx="308.0" cy="50.6" r="3.8" fill="var(--arp)" />
+<line x1="258.3" x2="258.3" y1="11" y2="65" stroke="var(--ink)" stroke-width="1.5" />
+<text x="263.3" y="19" font-size="12.5" font-weight="600" fill="var(--ink)" text-anchor="start" class="halo">78%</text>
+<text x="0" y="104" font-size="13" fill="var(--ink-2)">π0.5-DROID</text>
+<circle cx="127.2" cy="87.4" r="3.8" fill="var(--base)" />
+<circle cx="217.6" cy="95.8" r="3.8" fill="var(--base)" />
+<circle cx="127.2" cy="95.8" r="3.8" fill="var(--base)" />
+<circle cx="127.2" cy="104.2" r="3.8" fill="var(--base)" />
+<circle cx="127.2" cy="112.6" r="3.8" fill="var(--base)" />
+<circle cx="172.4" cy="91.6" r="3.8" fill="var(--base)" />
+<circle cx="82.0" cy="100.0" r="3.8" fill="var(--base)" />
+<circle cx="172.4" cy="100.0" r="3.8" fill="var(--base)" />
+<circle cx="217.6" cy="104.2" r="3.8" fill="var(--base)" />
+<circle cx="172.4" cy="108.4" r="3.8" fill="var(--base)" />
+<line x1="154.3" x2="154.3" y1="73" y2="127" stroke="var(--ink)" stroke-width="1.5" />
+<text x="159.3" y="81" font-size="12.5" font-weight="600" fill="var(--ink)" text-anchor="start" class="halo">32%</text>
+</svg><div>Completed the task: ARP 4/10, π0.5 0/10.</div></div><div class="tile"><div class="head">Stack the cups</div><div class="taskimg"><img src="assets/img/task_stack_the_cups_external.jpg" alt="Stack the cups: external camera at the start" loading="lazy"><img src="assets/img/task_stack_the_cups_wrist.jpg" alt="Stack the cups: wrist camera at the start" loading="lazy"></div><div style="margin:4px 0 10px">Scoring: 4 cups, 1/3 per nesting.</div><svg viewBox="0 0 320 150" role="img" aria-label="Per-trial progress, ARP-3B and π0.5-DROID">
+<line x1="82.0" x2="82.0" y1="6" y2="130" stroke="var(--rule)" />
+<text x="82.0" y="145" font-size="11.5" fill="var(--faint)" text-anchor="middle">0%</text>
+<line x1="138.5" x2="138.5" y1="6" y2="130" stroke="var(--rule)" />
+<text x="138.5" y="145" font-size="11.5" fill="var(--faint)" text-anchor="middle">25%</text>
+<line x1="195.0" x2="195.0" y1="6" y2="130" stroke="var(--rule)" />
+<text x="195.0" y="145" font-size="11.5" fill="var(--faint)" text-anchor="middle">50%</text>
+<line x1="251.5" x2="251.5" y1="6" y2="130" stroke="var(--rule)" />
+<text x="251.5" y="145" font-size="11.5" fill="var(--faint)" text-anchor="middle">75%</text>
+<line x1="308.0" x2="308.0" y1="6" y2="130" stroke="var(--rule)" />
+<text x="308.0" y="145" font-size="11.5" fill="var(--faint)" text-anchor="middle">100%</text>
+<text x="0" y="42" font-size="13" fill="var(--ink-2)">ARP-3B</text>
+<circle cx="232.7" cy="25.4" r="3.8" fill="var(--arp)" />
+<circle cx="232.7" cy="33.8" r="3.8" fill="var(--arp)" />
+<circle cx="270.3" cy="33.8" r="3.8" fill="var(--arp)" />
+<circle cx="232.7" cy="42.2" r="3.8" fill="var(--arp)" />
+<circle cx="270.3" cy="42.2" r="3.8" fill="var(--arp)" />
+<circle cx="308.0" cy="29.6" r="3.8" fill="var(--arp)" />
+<circle cx="82.0" cy="38.0" r="3.8" fill="var(--arp)" />
+<circle cx="308.0" cy="38.0" r="3.8" fill="var(--arp)" />
+<circle cx="308.0" cy="46.4" r="3.8" fill="var(--arp)" />
+<circle cx="232.7" cy="50.6" r="3.8" fill="var(--arp)" />
+<line x1="247.7" x2="247.7" y1="11" y2="65" stroke="var(--ink)" stroke-width="1.5" />
+<text x="252.7" y="19" font-size="12.5" font-weight="600" fill="var(--ink)" text-anchor="start" class="halo">73%</text>
+<text x="0" y="104" font-size="13" fill="var(--ink-2)">π0.5-DROID</text>
+<circle cx="308.0" cy="79.0" r="3.8" fill="var(--base)" />
+<circle cx="308.0" cy="87.4" r="3.8" fill="var(--base)" />
+<circle cx="308.0" cy="95.8" r="3.8" fill="var(--base)" />
+<circle cx="308.0" cy="104.2" r="3.8" fill="var(--base)" />
+<circle cx="232.7" cy="95.8" r="3.8" fill="var(--base)" />
+<circle cx="308.0" cy="112.6" r="3.8" fill="var(--base)" />
+<circle cx="232.7" cy="104.2" r="3.8" fill="var(--base)" />
+<circle cx="308.0" cy="121.0" r="3.8" fill="var(--base)" />
+<circle cx="157.3" cy="95.8" r="3.8" fill="var(--base)" />
+<circle cx="157.3" cy="104.2" r="3.8" fill="var(--base)" />
+<line x1="262.8" x2="262.8" y1="73" y2="127" stroke="var(--ink)" stroke-width="1.5" />
+<text x="267.8" y="81" font-size="12.5" font-weight="600" fill="var(--ink)" text-anchor="start" class="halo">80%</text>
+</svg><div>Completed the task: ARP 3/10, π0.5 6/10.</div></div><div class="tile"><div class="head">Put the markers in the bowl</div><div class="taskimg"><img src="assets/img/task_put_the_markers_in_the_bowl_external.jpg" alt="Put the markers in the bowl: external camera at the start" loading="lazy"><img src="assets/img/task_put_the_markers_in_the_bowl_wrist.jpg" alt="Put the markers in the bowl: wrist camera at the start" loading="lazy"></div><div style="margin:4px 0 10px">Scoring: 3 markers, 1/3 per object.</div><svg viewBox="0 0 320 150" role="img" aria-label="Per-trial progress, ARP-3B and π0.5-DROID">
+<line x1="82.0" x2="82.0" y1="6" y2="130" stroke="var(--rule)" />
+<text x="82.0" y="145" font-size="11.5" fill="var(--faint)" text-anchor="middle">0%</text>
+<line x1="138.5" x2="138.5" y1="6" y2="130" stroke="var(--rule)" />
+<text x="138.5" y="145" font-size="11.5" fill="var(--faint)" text-anchor="middle">25%</text>
+<line x1="195.0" x2="195.0" y1="6" y2="130" stroke="var(--rule)" />
+<text x="195.0" y="145" font-size="11.5" fill="var(--faint)" text-anchor="middle">50%</text>
+<line x1="251.5" x2="251.5" y1="6" y2="130" stroke="var(--rule)" />
+<text x="251.5" y="145" font-size="11.5" fill="var(--faint)" text-anchor="middle">75%</text>
+<line x1="308.0" x2="308.0" y1="6" y2="130" stroke="var(--rule)" />
+<text x="308.0" y="145" font-size="11.5" fill="var(--faint)" text-anchor="middle">100%</text>
+<text x="0" y="42" font-size="13" fill="var(--ink-2)">ARP-3B</text>
+<circle cx="308.0" cy="21.2" r="3.8" fill="var(--arp)" />
+<circle cx="157.3" cy="38.0" r="3.8" fill="var(--arp)" />
+<circle cx="308.0" cy="29.6" r="3.8" fill="var(--arp)" />
+<circle cx="232.7" cy="25.4" r="3.8" fill="var(--arp)" />
+<circle cx="308.0" cy="38.0" r="3.8" fill="var(--arp)" />
+<circle cx="232.7" cy="33.8" r="3.8" fill="var(--arp)" />
+<circle cx="232.7" cy="42.2" r="3.8" fill="var(--arp)" />
+<circle cx="232.7" cy="50.6" r="3.8" fill="var(--arp)" />
+<circle cx="308.0" cy="46.4" r="3.8" fill="var(--arp)" />
+<circle cx="308.0" cy="54.8" r="3.8" fill="var(--arp)" />
+<line x1="262.8" x2="262.8" y1="11" y2="65" stroke="var(--ink)" stroke-width="1.5" />
+<text x="267.8" y="19" font-size="12.5" font-weight="600" fill="var(--ink)" text-anchor="start" class="halo">80%</text>
+<text x="0" y="104" font-size="13" fill="var(--ink-2)">π0.5-DROID</text>
+<circle cx="232.7" cy="79.0" r="3.8" fill="var(--base)" />
+<circle cx="232.7" cy="87.4" r="3.8" fill="var(--base)" />
+<circle cx="232.7" cy="95.8" r="3.8" fill="var(--base)" />
+<circle cx="232.7" cy="104.2" r="3.8" fill="var(--base)" />
+<circle cx="232.7" cy="112.6" r="3.8" fill="var(--base)" />
+<circle cx="157.3" cy="91.6" r="3.8" fill="var(--base)" />
+<circle cx="82.0" cy="100.0" r="3.8" fill="var(--base)" />
+<circle cx="232.7" cy="121.0" r="3.8" fill="var(--base)" />
+<circle cx="157.3" cy="100.0" r="3.8" fill="var(--base)" />
+<circle cx="157.3" cy="108.4" r="3.8" fill="var(--base)" />
+<line x1="195.0" x2="195.0" y1="73" y2="127" stroke="var(--ink)" stroke-width="1.5" />
+<text x="200.0" y="81" font-size="12.5" font-weight="600" fill="var(--ink)" text-anchor="start" class="halo">50%</text>
+</svg><div>Completed the task: ARP 5/10, π0.5 0/10.</div></div></div>
+  <figcaption>The start of each task from the external and wrist cameras, then the progress of every trial (dots) and the
+  mean over 10 trials (line). With 10 trials per task, differences of 10 to 20 points are within noise.</figcaption>
+</figure>
+
+<h3 class="text" id="rollouts">Every trial</h3>
+<p class="text small">All 60 trials, in the order they were run. Thumbnails show the last frame of each trial. The videos come from
+the robot's cameras at one frame per control step, close to real time. The wrist camera did not record ARP's
+vegetables trial 10 or π0.5's vegetables trial 9.</p>
+<div class="controls" id="real-controls">
+  <div class="tabs" data-group="task" role="group" aria-label="Task">
+    <button aria-pressed="true" data-v="vegetables">Vegetables</button><button aria-pressed="false" data-v="cups">Cups</button><button aria-pressed="false" data-v="markers">Markers</button>
+  </div>
+  <div class="tabs" data-group="view" role="group" aria-label="Camera">
+    <button aria-pressed="true" data-v="external">External camera</button><button aria-pressed="false" data-v="wrist">Wrist camera</button>
+  </div>
+</div>
+<div class="browser" id="real-browser">
+  <div class="col" data-m="arp"><h4>ARP-3B <span class="mean"></span></h4><video muted playsinline controls preload="metadata"></video><div class="meta"></div><div class="thumbs"></div></div>
+  <div class="col" data-m="pi05"><h4>π0.5-DROID <span class="mean"></span></h4><video muted playsinline controls preload="metadata"></video><div class="meta"></div><div class="thumbs"></div></div>
+</div>
+<script type="application/json" id="real-data">{"vegetables": {"dir": "put_the_vegetables_in_the_bowl", "title": "Put the vegetables in the bowl", "max": 5, "arp": [{"i": 1, "score": 5.0, "progress": 1.0, "duration": 68.5, "wrist": true, "stem": "ARP__put_the_vegetables_in_the_bowl__trial_01"}, {"i": 2, "score": 4.0, "progress": 0.8, "duration": 90.1, "wrist": true, "stem": "ARP__put_the_vegetables_in_the_bowl__trial_02"}, {"i": 3, "score": 2.0, "progress": 0.4, "duration": 90.1, "wrist": true, "stem": "ARP__put_the_vegetables_in_the_bowl__trial_03"}, {"i": 4, "score": 4.0, "progress": 0.8, "duration": 90.1, "wrist": true, "stem": "ARP__put_the_vegetables_in_the_bowl__trial_04"}, {"i": 5, "score": 4.0, "progress": 0.8, "duration": 90.1, "wrist": true, "stem": "ARP__put_the_vegetables_in_the_bowl__trial_05"}, {"i": 6, "score": 5.0, "progress": 1.0, "duration": 75.4, "wrist": true, "stem": "ARP__put_the_vegetables_in_the_bowl__trial_06"}, {"i": 7, "score": 3.0, "progress": 0.6, "duration": 90.1, "wrist": true, "stem": "ARP__put_the_vegetables_in_the_bowl__trial_07"}, {"i": 8, "score": 5.0, "progress": 1.0, "duration": 71.0, "wrist": true, "stem": "ARP__put_the_vegetables_in_the_bowl__trial_08"}, {"i": 9, "score": 2.0, "progress": 0.4, "duration": 90.1, "wrist": true, "stem": "ARP__put_the_vegetables_in_the_bowl__trial_09"}, {"i": 10, "score": 5.0, "progress": 1.0, "duration": 72.3, "wrist": false, "stem": "ARP__put_the_vegetables_in_the_bowl__trial_10"}], "pi05": [{"i": 1, "score": 1.0, "progress": 0.2, "duration": 90.1, "wrist": true, "stem": "pi05__put_the_vegetables_in_the_bowl__trial_01"}, {"i": 2, "score": 3.0, "progress": 0.6, "duration": 90.1, "wrist": true, "stem": "pi05__put_the_vegetables_in_the_bowl__trial_02"}, {"i": 3, "score": 1.0, "progress": 0.2, "duration": 90.1, "wrist": true, "stem": "pi05__put_the_vegetables_in_the_bowl__trial_03"}, {"i": 4, "score": 1.0, "progress": 0.2, "duration": 90.1, "wrist": true, "stem": "pi05__put_the_vegetables_in_the_bowl__trial_04"}, {"i": 5, "score": 1.0, "progress": 0.2, "duration": 90.1, "wrist": true, "stem": "pi05__put_the_vegetables_in_the_bowl__trial_05"}, {"i": 6, "score": 2.0, "progress": 0.4, "duration": 90.1, "wrist": true, "stem": "pi05__put_the_vegetables_in_the_bowl__trial_06"}, {"i": 7, "score": 0.0, "progress": 0.0, "duration": 90.1, "wrist": true, "stem": "pi05__put_the_vegetables_in_the_bowl__trial_07"}, {"i": 8, "score": 2.0, "progress": 0.4, "duration": 90.1, "wrist": true, "stem": "pi05__put_the_vegetables_in_the_bowl__trial_08"}, {"i": 9, "score": 3.0, "progress": 0.6, "duration": 55.6, "wrist": false, "stem": "pi05__put_the_vegetables_in_the_bowl__trial_09"}, {"i": 10, "score": 2.0, "progress": 0.4, "duration": 90.1, "wrist": true, "stem": "pi05__put_the_vegetables_in_the_bowl__trial_10"}]}, "cups": {"dir": "stack_the_cups", "title": "Stack the cups", "max": 3, "arp": [{"i": 1, "score": 2.0, "progress": 0.667, "duration": 55.3, "wrist": true, "stem": "ARP__stack_the_cups__trial_01"}, {"i": 2, "score": 2.0, "progress": 0.667, "duration": 65.0, "wrist": true, "stem": "ARP__stack_the_cups__trial_02"}, {"i": 3, "score": 2.5, "progress": 0.833, "duration": 63.7, "wrist": true, "stem": "ARP__stack_the_cups__trial_03"}, {"i": 4, "score": 2.0, "progress": 0.667, "duration": 89.8, "wrist": true, "stem": "ARP__stack_the_cups__trial_04"}, {"i": 5, "score": 2.5, "progress": 0.833, "duration": 90.1, "wrist": true, "stem": "ARP__stack_the_cups__trial_05"}, {"i": 6, "score": 3.0, "progress": 1.0, "duration": 41.2, "wrist": true, "stem": "ARP__stack_the_cups__trial_06"}, {"i": 7, "score": 0.0, "progress": 0.0, "duration": 90.1, "wrist": true, "stem": "ARP__stack_the_cups__trial_07"}, {"i": 8, "score": 3.0, "progress": 1.0, "duration": 44.2, "wrist": true, "stem": "ARP__stack_the_cups__trial_08"}, {"i": 9, "score": 3.0, "progress": 1.0, "duration": 74.5, "wrist": true, "stem": "ARP__stack_the_cups__trial_09"}, {"i": 10, "score": 2.0, "progress": 0.667, "duration": 90.1, "wrist": true, "stem": "ARP__stack_the_cups__trial_10"}], "pi05": [{"i": 1, "score": 3.0, "progress": 1.0, "duration": 47.6, "wrist": true, "stem": "pi05__stack_the_cups__trial_01"}, {"i": 2, "score": 3.0, "progress": 1.0, "duration": 76.4, "wrist": true, "stem": "pi05__stack_the_cups__trial_02"}, {"i": 3, "score": 3.0, "progress": 1.0, "duration": 88.7, "wrist": true, "stem": "pi05__stack_the_cups__trial_03"}, {"i": 4, "score": 3.0, "progress": 1.0, "duration": 81.2, "wrist": true, "stem": "pi05__stack_the_cups__trial_04"}, {"i": 5, "score": 2.0, "progress": 0.667, "duration": 90.1, "wrist": true, "stem": "pi05__stack_the_cups__trial_05"}, {"i": 6, "score": 3.0, "progress": 1.0, "duration": 64.9, "wrist": true, "stem": "pi05__stack_the_cups__trial_06"}, {"i": 7, "score": 2.0, "progress": 0.667, "duration": 51.6, "wrist": true, "stem": "pi05__stack_the_cups__trial_07"}, {"i": 8, "score": 3.0, "progress": 1.0, "duration": 87.5, "wrist": true, "stem": "pi05__stack_the_cups__trial_08"}, {"i": 9, "score": 1.0, "progress": 0.333, "duration": 90.1, "wrist": true, "stem": "pi05__stack_the_cups__trial_09"}, {"i": 10, "score": 1.0, "progress": 0.333, "duration": 72.9, "wrist": true, "stem": "pi05__stack_the_cups__trial_10"}]}, "markers": {"dir": "put_the_markers_in_the_bowl", "title": "Put the markers in the bowl", "max": 3, "arp": [{"i": 1, "score": 3.0, "progress": 1.0, "duration": 60.1, "wrist": true, "stem": "ARP__put_the_markers_in_the_bowl__trial_01"}, {"i": 2, "score": 1.0, "progress": 0.333, "duration": 64.9, "wrist": true, "stem": "ARP__put_the_markers_in_the_bowl__trial_02"}, {"i": 3, "score": 3.0, "progress": 1.0, "duration": 90.1, "wrist": true, "stem": "ARP__put_the_markers_in_the_bowl__trial_03"}, {"i": 4, "score": 2.0, "progress": 0.667, "duration": 62.7, "wrist": true, "stem": "ARP__put_the_markers_in_the_bowl__trial_04"}, {"i": 5, "score": 3.0, "progress": 1.0, "duration": 90.1, "wrist": true, "stem": "ARP__put_the_markers_in_the_bowl__trial_05"}, {"i": 6, "score": 2.0, "progress": 0.667, "duration": 74.7, "wrist": true, "stem": "ARP__put_the_markers_in_the_bowl__trial_06"}, {"i": 7, "score": 2.0, "progress": 0.667, "duration": 90.1, "wrist": true, "stem": "ARP__put_the_markers_in_the_bowl__trial_07"}, {"i": 8, "score": 2.0, "progress": 0.667, "duration": 90.1, "wrist": true, "stem": "ARP__put_the_markers_in_the_bowl__trial_08"}, {"i": 9, "score": 3.0, "progress": 1.0, "duration": 90.1, "wrist": true, "stem": "ARP__put_the_markers_in_the_bowl__trial_09"}, {"i": 10, "score": 3.0, "progress": 1.0, "duration": 79.3, "wrist": true, "stem": "ARP__put_the_markers_in_the_bowl__trial_10"}], "pi05": [{"i": 1, "score": 2.0, "progress": 0.667, "duration": 90.2, "wrist": true, "stem": "pi05__put_the_markers_in_the_bowl__trial_01"}, {"i": 2, "score": 2.0, "progress": 0.667, "duration": 77.8, "wrist": true, "stem": "pi05__put_the_markers_in_the_bowl__trial_02"}, {"i": 3, "score": 2.0, "progress": 0.667, "duration": 90.2, "wrist": true, "stem": "pi05__put_the_markers_in_the_bowl__trial_03"}, {"i": 4, "score": 2.0, "progress": 0.667, "duration": 90.2, "wrist": true, "stem": "pi05__put_the_markers_in_the_bowl__trial_04"}, {"i": 5, "score": 2.0, "progress": 0.667, "duration": 90.2, "wrist": true, "stem": "pi05__put_the_markers_in_the_bowl__trial_05"}, {"i": 6, "score": 1.0, "progress": 0.333, "duration": 90.2, "wrist": true, "stem": "pi05__put_the_markers_in_the_bowl__trial_06"}, {"i": 7, "score": 0.0, "progress": 0.0, "duration": 90.2, "wrist": true, "stem": "pi05__put_the_markers_in_the_bowl__trial_07"}, {"i": 8, "score": 2.0, "progress": 0.667, "duration": 90.2, "wrist": true, "stem": "pi05__put_the_markers_in_the_bowl__trial_08"}, {"i": 9, "score": 1.0, "progress": 0.333, "duration": 90.1, "wrist": true, "stem": "pi05__put_the_markers_in_the_bowl__trial_09"}, {"i": 10, "score": 1.0, "progress": 0.333, "duration": 90.1, "wrist": true, "stem": "pi05__put_the_markers_in_the_bowl__trial_10"}]}}</script>
+</section>
+
+<!-- ============================================================ REACTIVITY -->
+<section id="reactivity">
+<div class="text">
+  <h2>When the scene changes</h2>
+  <p>Benchmarks like LIBERO hardly measure reaction time, because nothing moves unless the robot moves it. We built two
+  simulated tests in which the scene changes while the robot is acting.</p>
+  <ul>
+    <li>In <b>LIBERO-Perturb</b>, the object the robot is reaching for jumps 5&nbsp;cm sideways when the gripper gets within 10&nbsp;cm
+    of it. It runs on 20 LIBERO tasks.</li>
+    <li>In <b>Dyn-Bump</b>, a ball or cylinder rolls toward the robot and is knocked onto a new course, turned by up to
+    100°, at a random moment 1.5 to 5&nbsp;s into the episode. The robot has to catch it and lift it.</li>
+  </ul>
+  <p>Both tests are deterministic, so every policy faces exactly the same episodes.</p>
+  <p>We compare three versions of the same 1B model:</p>
+  <ul>
+    <li><b>ARP</b> runs asynchronously.</li>
+    <li><b>ARP weights, synchronous</b> uses the same trained network but calls the VLM before every action chunk, as an
+    ordinary VLA would.</li>
+    <li>The <b>π0-style baseline</b> is our model with the action expert's camera input removed, so it sees the scene only
+    through the VLM's memory, as π0 does. It shares our backbone, data and training recipe.</li>
+  </ul>
+</div>
+<figure>
+  <div class="chart-scroll"><svg viewBox="0 0 760 304" role="img" aria-label="Success when the scene changes during execution">
+<text x="60" y="16" font-size="14" font-weight="600" fill="var(--ink)">Object moved mid-reach (LIBERO-Perturb)</text>
+<line x1="60" x2="350" y1="242.0" y2="242.0" stroke="var(--rule-2)" />
+<text x="52" y="246.0" font-size="11.5" fill="var(--faint)" text-anchor="end">0%</text>
+<line x1="60" x2="350" y1="176.0" y2="176.0" stroke="var(--rule)" />
+<text x="52" y="180.0" font-size="11.5" fill="var(--faint)" text-anchor="end">20%</text>
+<line x1="60" x2="350" y1="110.0" y2="110.0" stroke="var(--rule)" />
+<text x="52" y="114.0" font-size="11.5" fill="var(--faint)" text-anchor="end">40%</text>
+<line x1="60" x2="350" y1="44.0" y2="44.0" stroke="var(--rule)" />
+<text x="52" y="48.0" font-size="11.5" fill="var(--faint)" text-anchor="end">60%</text>
+<rect x="81.0" y="72.0" width="62" height="169.9" fill="var(--arp)" />
+<line x1="112.0" x2="112.0" y1="94.8" y2="49.6" stroke="var(--ink)" stroke-width="1.2" />
+<line x1="107.0" x2="117.0" y1="94.8" y2="94.8" stroke="var(--ink)" stroke-width="1.2" />
+<line x1="107.0" x2="117.0" y1="49.6" y2="49.6" stroke="var(--ink)" stroke-width="1.2" />
+<text x="112.0" y="43.6" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">51.5</text>
+<text x="112.0" y="260.0" font-size="12.5" fill="var(--ink-2)" text-anchor="middle">ARP</text>
+<text x="112.0" y="275.0" font-size="12" fill="var(--faint)" text-anchor="middle">asynchronous</text>
+<rect x="180.0" y="88.6" width="62" height="153.4" fill="var(--arp-2)" />
+<line x1="211.0" x2="211.0" y1="111.0" y2="65.8" stroke="var(--ink)" stroke-width="1.2" />
+<line x1="206.0" x2="216.0" y1="111.0" y2="111.0" stroke="var(--ink)" stroke-width="1.2" />
+<line x1="206.0" x2="216.0" y1="65.8" y2="65.8" stroke="var(--ink)" stroke-width="1.2" />
+<text x="211.0" y="59.8" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">46.5</text>
+<text x="211.0" y="260.0" font-size="12.5" fill="var(--ink-2)" text-anchor="middle">ARP weights</text>
+<text x="211.0" y="275.0" font-size="12" fill="var(--faint)" text-anchor="middle">synchronous</text>
+<rect x="279.0" y="210.7" width="62" height="31.3" fill="var(--base)" />
+<line x1="310.0" x2="310.0" y1="221.5" y2="194.5" stroke="var(--ink)" stroke-width="1.2" />
+<line x1="305.0" x2="315.0" y1="221.5" y2="221.5" stroke="var(--ink)" stroke-width="1.2" />
+<line x1="305.0" x2="315.0" y1="194.5" y2="194.5" stroke="var(--ink)" stroke-width="1.2" />
+<text x="310.0" y="188.5" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">9.5</text>
+<text x="310.0" y="260.0" font-size="12.5" fill="var(--ink-2)" text-anchor="middle">π0-style</text>
+<text x="310.0" y="275.0" font-size="12" fill="var(--faint)" text-anchor="middle">baseline</text>
+<text x="205.0" y="300" font-size="11.5" fill="var(--faint)" text-anchor="middle">200 episodes per bar</text>
+<text x="430" y="16" font-size="14" font-weight="600" fill="var(--ink)">Object knocked off course (Dyn-Bump)</text>
+<line x1="430" x2="720" y1="242.0" y2="242.0" stroke="var(--rule-2)" />
+<text x="422" y="246.0" font-size="11.5" fill="var(--faint)" text-anchor="end">0%</text>
+<line x1="430" x2="720" y1="176.0" y2="176.0" stroke="var(--rule)" />
+<text x="422" y="180.0" font-size="11.5" fill="var(--faint)" text-anchor="end">20%</text>
+<line x1="430" x2="720" y1="110.0" y2="110.0" stroke="var(--rule)" />
+<text x="422" y="114.0" font-size="11.5" fill="var(--faint)" text-anchor="end">40%</text>
+<line x1="430" x2="720" y1="44.0" y2="44.0" stroke="var(--rule)" />
+<text x="422" y="48.0" font-size="11.5" fill="var(--faint)" text-anchor="end">60%</text>
+<rect x="451.0" y="94.6" width="62" height="147.4" fill="var(--arp)" />
+<line x1="482.0" x2="482.0" y1="120.2" y2="68.1" stroke="var(--ink)" stroke-width="1.2" />
+<line x1="477.0" x2="487.0" y1="120.2" y2="120.2" stroke="var(--ink)" stroke-width="1.2" />
+<line x1="477.0" x2="487.0" y1="68.1" y2="68.1" stroke="var(--ink)" stroke-width="1.2" />
+<text x="482.0" y="62.1" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">44.7</text>
+<text x="482.0" y="260.0" font-size="12.5" fill="var(--ink-2)" text-anchor="middle">ARP</text>
+<text x="482.0" y="275.0" font-size="12" fill="var(--faint)" text-anchor="middle">asynchronous</text>
+<rect x="550.0" y="138.6" width="62" height="103.4" fill="var(--arp-2)" />
+<line x1="581.0" x2="581.0" y1="161.2" y2="113.0" stroke="var(--ink)" stroke-width="1.2" />
+<line x1="576.0" x2="586.0" y1="161.2" y2="161.2" stroke="var(--ink)" stroke-width="1.2" />
+<line x1="576.0" x2="586.0" y1="113.0" y2="113.0" stroke="var(--ink)" stroke-width="1.2" />
+<text x="581.0" y="107.0" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">31.3</text>
+<text x="581.0" y="260.0" font-size="12.5" fill="var(--ink-2)" text-anchor="middle">ARP weights</text>
+<text x="581.0" y="275.0" font-size="12" fill="var(--faint)" text-anchor="middle">synchronous</text>
+<rect x="649.0" y="200.2" width="62" height="41.8" fill="var(--base)" />
+<line x1="680.0" x2="680.0" y1="214.6" y2="179.6" stroke="var(--ink)" stroke-width="1.2" />
+<line x1="675.0" x2="685.0" y1="214.6" y2="214.6" stroke="var(--ink)" stroke-width="1.2" />
+<line x1="675.0" x2="685.0" y1="179.6" y2="179.6" stroke="var(--ink)" stroke-width="1.2" />
+<text x="680.0" y="173.6" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">12.7</text>
+<text x="680.0" y="260.0" font-size="12.5" fill="var(--ink-2)" text-anchor="middle">π0-style</text>
+<text x="680.0" y="275.0" font-size="12" fill="var(--faint)" text-anchor="middle">baseline</text>
+<text x="575.0" y="300" font-size="11.5" fill="var(--faint)" text-anchor="middle">150 episodes per bar</text>
+</svg></div>
+  <figcaption>Success rate with 95% intervals. LIBERO-Perturb: 20 tasks, 10 trials each. Dyn-Bump: 3 tasks, 50 trials each,
+  with a bump in every episode.</figcaption>
+</figure>
+<div class="text">
+  <p>The two tests separate two effects. When the object jumps mid-reach, all three policies first reach toward where it
+  used to be, in about 76% of episodes, because the reach is already under way. ARP then recovers in
+  46% of those episodes and the π0-style baseline in 7%. The synchronous version of ARP does almost as well
+  as the asynchronous one (46.5 vs 51.5%), so in this test the gain comes from giving the action expert
+  its own camera rather than from running asynchronously.</p>
+  <p>When the object keeps moving, asynchrony matters too. The same weights drop from 44.7% to 31.3%
+  when the VLM is put back into the control loop. With a bump in only half of the episodes, the results are
+  48.0% and 36.4% over 450 episodes each, and 20.0% for the π0-style baseline
+  over 150.</p>
+</div>
+
+<h3 class="text" id="lp-rollouts">LIBERO-Perturb rollouts</h3>
+<div class="controls">
+  <select id="lp-task" aria-label="Task"><option value="0">Object: pick up the alphabet soup and place it in the basket</option><option value="1">Object: pick up the cream cheese and place it in the basket</option><option value="2">Object: pick up the salad dressing and place it in the basket</option><option value="3">Object: pick up the bbq sauce and place it in the basket</option><option value="4">Object: pick up the ketchup and place it in the basket</option><option value="5">Object: pick up the tomato sauce and place it in the basket</option><option value="6">Object: pick up the butter and place it in the basket</option><option value="7">Object: pick up the milk and place it in the basket</option><option value="8">Object: pick up the chocolate pudding and place it in the basket</option><option value="9">Object: pick up the orange juice and place it in the basket</option><option value="10">Spatial: pick up the black bowl between the plate and the ramekin and place it on the plate</option><option value="11">Spatial: pick up the black bowl next to the ramekin and place it on the plate</option><option value="12">Spatial: pick up the black bowl from table center and place it on the plate</option><option value="13">Spatial: pick up the black bowl on the cookie box and place it on the plate</option><option value="14">Spatial: pick up the black bowl in the top drawer of the wooden cabinet and place it on the plate</option><option value="15">Spatial: pick up the black bowl on the ramekin and place it on the plate</option><option value="16">Spatial: pick up the black bowl next to the cookie box and place it on the plate</option><option value="17">Spatial: pick up the black bowl on the stove and place it on the plate</option><option value="18">Spatial: pick up the black bowl next to the plate and place it on the plate</option><option value="19">Spatial: pick up the black bowl on the wooden cabinet and place it on the plate</option></select>
+</div>
+<div class="grid3" id="lp-gallery">
+  <div class="tile"><div class="head"><span>ARP</span><span class="res" data-k="arp"></span></div><video data-k="arp" muted playsinline controls loop preload="metadata"></video></div>
+  <div class="tile"><div class="head"><span>ARP weights, synchronous</span><span class="res" data-k="arpsync"></span></div><video data-k="arpsync" muted playsinline controls loop preload="metadata"></video></div>
+  <div class="tile"><div class="head"><span>π0-style baseline</span><span class="res" data-k="pi0"></span></div><video data-k="pi0" muted playsinline controls loop preload="metadata"></video></div>
+</div>
+<p class="text small">The first trial of each task, in real time. Each video shows the front camera on the left and the wrist camera
+on the right. The label gives this trial's outcome and, in brackets, the task's successes out of 10.</p>
+<script type="application/json" id="lp-data">[{"name": "pick_up_the_alphabet_soup_and_place_it_in_the_basket", "prompt": "pick up the alphabet soup and place it in the basket", "arp": [10, {"success": true, "event_step": 18, "steps": 392}], "arpsync": [7, {"success": true, "event_step": 19, "steps": 309}], "pi0": [0, {"success": false, "event_step": 19, "steps": 400}]}, {"name": "pick_up_the_cream_cheese_and_place_it_in_the_basket", "prompt": "pick up the cream cheese and place it in the basket", "arp": [10, {"success": true, "event_step": 16, "steps": 144}], "arpsync": [9, {"success": true, "event_step": 16, "steps": 144}], "pi0": [0, {"success": false, "event_step": 17, "steps": 400}]}, {"name": "pick_up_the_salad_dressing_and_place_it_in_the_basket", "prompt": "pick up the salad dressing and place it in the basket", "arp": [2, {"success": true, "event_step": 18, "steps": 114}], "arpsync": [2, {"success": false, "event_step": 16, "steps": 400}], "pi0": [0, {"success": false, "event_step": 18, "steps": 400}]}, {"name": "pick_up_the_bbq_sauce_and_place_it_in_the_basket", "prompt": "pick up the bbq sauce and place it in the basket", "arp": [6, {"success": false, "event_step": 18, "steps": 400}], "arpsync": [4, {"success": false, "event_step": 15, "steps": 400}], "pi0": [0, {"success": false, "event_step": 20, "steps": 400}]}, {"name": "pick_up_the_ketchup_and_place_it_in_the_basket", "prompt": "pick up the ketchup and place it in the basket", "arp": [3, {"success": true, "event_step": 20, "steps": 227}], "arpsync": [1, {"success": false, "event_step": 22, "steps": 400}], "pi0": [0, {"success": false, "event_step": 23, "steps": 400}]}, {"name": "pick_up_the_tomato_sauce_and_place_it_in_the_basket", "prompt": "pick up the tomato sauce and place it in the basket", "arp": [1, {"success": false, "event_step": 18, "steps": 400}], "arpsync": [5, {"success": false, "event_step": 20, "steps": 400}], "pi0": [0, {"success": false, "event_step": 20, "steps": 400}]}, {"name": "pick_up_the_butter_and_place_it_in_the_basket", "prompt": "pick up the butter and place it in the basket", "arp": [8, {"success": true, "event_step": 22, "steps": 204}], "arpsync": [10, {"success": true, "event_step": 23, "steps": 237}], "pi0": [2, {"success": false, "event_step": 22, "steps": 400}]}, {"name": "pick_up_the_milk_and_place_it_in_the_basket", "prompt": "pick up the milk and place it in the basket", "arp": [3, {"success": false, "event_step": 16, "steps": 400}], "arpsync": [3, {"success": false, "event_step": 17, "steps": 400}], "pi0": [0, {"success": false, "event_step": 18, "steps": 400}]}, {"name": "pick_up_the_chocolate_pudding_and_place_it_in_the_basket", "prompt": "pick up the chocolate pudding and place it in the basket", "arp": [10, {"success": true, "event_step": 16, "steps": 139}], "arpsync": [8, {"success": true, "event_step": 16, "steps": 144}], "pi0": [0, {"success": false, "event_step": 17, "steps": 400}]}, {"name": "pick_up_the_orange_juice_and_place_it_in_the_basket", "prompt": "pick up the orange juice and place it in the basket", "arp": [4, {"success": false, "event_step": 16, "steps": 400}], "arpsync": [1, {"success": false, "event_step": 15, "steps": 400}], "pi0": [0, {"success": false, "event_step": 18, "steps": 400}]}, {"name": "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate", "prompt": "pick up the black bowl between the plate and the ramekin and place it on the plate", "arp": [3, {"success": false, "event_step": 20, "steps": 330}], "arpsync": [8, {"success": true, "event_step": 31, "steps": 148}], "pi0": [0, {"success": false, "event_step": 28, "steps": 330}]}, {"name": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate", "prompt": "pick up the black bowl next to the ramekin and place it on the plate", "arp": [6, {"success": false, "event_step": 24, "steps": 330}], "arpsync": [4, {"success": false, "event_step": 22, "steps": 330}], "pi0": [3, {"success": false, "event_step": 24, "steps": 330}]}, {"name": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate", "prompt": "pick up the black bowl from table center and place it on the plate", "arp": [8, {"success": true, "event_step": 11, "steps": 135}], "arpsync": [6, {"success": true, "event_step": 10, "steps": 132}], "pi0": [2, {"success": true, "event_step": 9, "steps": 241}]}, {"name": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate", "prompt": "pick up the black bowl on the cookie box and place it on the plate", "arp": [4, {"success": false, "event_step": 22, "steps": 330}], "arpsync": [3, {"success": false, "event_step": 19, "steps": 330}], "pi0": [1, {"success": false, "event_step": 22, "steps": 330}]}, {"name": "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate", "prompt": "pick up the black bowl in the top drawer of the wooden cabinet and place it on the plate", "arp": [0, {"success": false, "event_step": 26, "steps": 330}], "arpsync": [1, {"success": false, "event_step": 27, "steps": 330}], "pi0": [0, {"success": false, "event_step": 28, "steps": 330}]}, {"name": "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate", "prompt": "pick up the black bowl on the ramekin and place it on the plate", "arp": [1, {"success": false, "event_step": 33, "steps": 330}], "arpsync": [0, {"success": false, "event_step": 26, "steps": 330}], "pi0": [0, {"success": false, "event_step": 30, "steps": 330}]}, {"name": "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate", "prompt": "pick up the black bowl next to the cookie box and place it on the plate", "arp": [6, {"success": false, "event_step": 28, "steps": 330}], "arpsync": [3, {"success": false, "event_step": 25, "steps": 330}], "pi0": [1, {"success": false, "event_step": 27, "steps": 330}]}, {"name": "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate", "prompt": "pick up the black bowl on the stove and place it on the plate", "arp": [5, {"success": false, "event_step": 14, "steps": 330}], "arpsync": [5, {"success": false, "event_step": 10, "steps": 330}], "pi0": [3, {"success": false, "event_step": 14, "steps": 330}]}, {"name": "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate", "prompt": "pick up the black bowl next to the plate and place it on the plate", "arp": [8, {"success": false, "event_step": 45, "steps": 330}], "arpsync": [7, {"success": true, "event_step": 44, "steps": 243}], "pi0": [3, {"success": false, "event_step": 34, "steps": 330}]}, {"name": "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate", "prompt": "pick up the black bowl on the wooden cabinet and place it on the plate", "arp": [5, {"success": true, "event_step": 28, "steps": 119}], "arpsync": [6, {"success": true, "event_step": 28, "steps": 116}], "pi0": [4, {"success": true, "event_step": 31, "steps": 130}]}]</script>
+<details class="text"><summary>Results per task</summary><div class="tablewrap"><table><thead><tr><th class="l">Task (10 trials each)</th><th>ARP-1B async</th><th>ARP-1B sync</th><th>π0-style 1B</th></tr></thead><tbody><tr class="group"><td colspan="4">LIBERO-Spatial</td></tr><tr><td class="l">pick up the black bowl between the plate and the ramekin and place it on the plate</td><td>3</td><td>8</td><td>0</td></tr><tr><td class="l">pick up the black bowl next to the ramekin and place it on the plate</td><td>6</td><td>4</td><td>3</td></tr><tr><td class="l">pick up the black bowl from table center and place it on the plate</td><td>8</td><td>6</td><td>2</td></tr><tr><td class="l">pick up the black bowl on the cookie box and place it on the plate</td><td>4</td><td>3</td><td>1</td></tr><tr><td class="l">pick up the black bowl in the top drawer of the wooden cabinet and place it on the plate</td><td>0</td><td>1</td><td>0</td></tr><tr><td class="l">pick up the black bowl on the ramekin and place it on the plate</td><td>1</td><td>0</td><td>0</td></tr><tr><td class="l">pick up the black bowl next to the cookie box and place it on the plate</td><td>6</td><td>3</td><td>1</td></tr><tr><td class="l">pick up the black bowl on the stove and place it on the plate</td><td>5</td><td>5</td><td>3</td></tr><tr><td class="l">pick up the black bowl next to the plate and place it on the plate</td><td>8</td><td>7</td><td>3</td></tr><tr><td class="l">pick up the black bowl on the wooden cabinet and place it on the plate</td><td>5</td><td>6</td><td>4</td></tr><tr class="group"><td colspan="4">LIBERO-Object</td></tr><tr><td class="l">pick up the alphabet soup and place it in the basket</td><td>10</td><td>7</td><td>0</td></tr><tr><td class="l">pick up the cream cheese and place it in the basket</td><td>10</td><td>9</td><td>0</td></tr><tr><td class="l">pick up the salad dressing and place it in the basket</td><td>2</td><td>2</td><td>0</td></tr><tr><td class="l">pick up the bbq sauce and place it in the basket</td><td>6</td><td>4</td><td>0</td></tr><tr><td class="l">pick up the ketchup and place it in the basket</td><td>3</td><td>1</td><td>0</td></tr><tr><td class="l">pick up the tomato sauce and place it in the basket</td><td>1</td><td>5</td><td>0</td></tr><tr><td class="l">pick up the butter and place it in the basket</td><td>8</td><td>10</td><td>2</td></tr><tr><td class="l">pick up the milk and place it in the basket</td><td>3</td><td>3</td><td>0</td></tr><tr><td class="l">pick up the chocolate pudding and place it in the basket</td><td>10</td><td>8</td><td>0</td></tr><tr><td class="l">pick up the orange juice and place it in the basket</td><td>4</td><td>1</td><td>0</td></tr></tbody></table></div></details>
+
+<h3 class="text" id="bump-rollouts">Dyn-Bump rollouts</h3>
+<div class="controls">
+  <div class="tabs" data-group="bump-task" role="group" aria-label="Task">
+    <button aria-pressed="true" data-v="dyn_bump_red_ball">Red ball</button><button aria-pressed="false" data-v="dyn_bump_blue_ball">Blue ball</button><button aria-pressed="false" data-v="dyn_bump_green_cylinder">Green cylinder</button>
+  </div>
+</div>
+<div class="grid3" id="bump-gallery">
+  <div class="tile"><div class="head"><span>ARP</span><span class="res" data-k="arp_async"></span></div><video data-k="arp" muted playsinline controls loop preload="metadata"></video></div>
+  <div class="tile"><div class="head"><span>ARP weights, synchronous</span><span class="res" data-k="arp_sync"></span></div><video data-k="arpsync" muted playsinline controls loop preload="metadata"></video></div>
+  <div class="tile"><div class="head"><span>π0-style baseline</span><span class="res" data-k="pi0_async"></span></div><video data-k="pi0" muted playsinline controls loop preload="metadata"></video></div>
+</div>
+<p class="text small">The first trial of each task, in real time. ARP fails two of these three.</p>
+<script type="application/json" id="bump-data">{"dyn_bump_red_ball": {"arp_async": {"success": false, "steps": 300, "event_step": null}, "arp_sync": {"success": true, "steps": 67, "event_step": null}, "pi0_async": {"success": false, "steps": 300, "event_step": 36}}, "dyn_bump_blue_ball": {"arp_async": {"success": false, "steps": 300, "event_step": null}, "arp_sync": {"success": true, "steps": 171, "event_step": null}, "pi0_async": {"success": false, "steps": 300, "event_step": 100}}, "dyn_bump_green_cylinder": {"arp_async": {"success": true, "steps": 55, "event_step": null}, "arp_sync": {"success": true, "steps": 102, "event_step": null}, "pi0_async": {"success": true, "steps": 48, "event_step": null}}}</script>
+
+<figure>
+  <div class="grid2">
+    <div class="tile"><div class="head"><span>ARP</span><span class="res">success</span></div><video src="assets/video/bump/dyn_bump_red_ball_trial35__ours-async_d2_lat2overlap_seed0.mp4" muted playsinline controls loop preload="metadata"></video></div>
+    <div class="tile"><div class="head"><span>ARP weights, synchronous</span><span class="res fail">failure</span></div><video src="assets/video/bump/dyn_bump_red_ball_trial35__ours-sync_d4_lat4hold_seed0.mp4" muted playsinline controls loop preload="metadata"></video></div>
+  </div>
+  <figcaption>The red-ball episode used as an example in the paper (trial 35). The ball is knocked at 2.15&nbsp;s. ARP turns,
+  follows it and lifts it at 5.0&nbsp;s. The synchronous version falls behind and times out at 15&nbsp;s.</figcaption>
+</figure>
+<p class="text small">We also measured how long the arm takes to turn toward the ball's new course after a bump. Asynchronous
+execution turned sooner on average in all five comparisons we ran, by 135 to 261&nbsp;ms. None of these differences is
+statistically significant at our sample sizes.</p>
+</section>
+
+<!-- ============================================================ RATE -->
+<section id="rate">
+<div class="text">
+  <h2>Running the large model less often</h2>
+  <p>Since the action expert does the reacting, the VLM does not have to keep pace with the robot. We kept the action
+  expert at 5&nbsp;Hz and refreshed the memory less and less often, on LIBERO, with 400 episodes per point.</p>
+</div>
+<figure class="text">
+  <div class="chart-scroll"><svg viewBox="0 0 680 340" role="img" aria-label="Success rate against VLM refresh rate">
+<line x1="52" x2="540" y1="256.3" y2="256.3" stroke="var(--rule)" />
+<text x="44" y="260.3" font-size="12" fill="var(--faint)" text-anchor="end">40</text>
+<line x1="52" x2="540" y1="213.0" y2="213.0" stroke="var(--rule)" />
+<text x="44" y="217.0" font-size="12" fill="var(--faint)" text-anchor="end">50</text>
+<line x1="52" x2="540" y1="169.7" y2="169.7" stroke="var(--rule)" />
+<text x="44" y="173.7" font-size="12" fill="var(--faint)" text-anchor="end">60</text>
+<line x1="52" x2="540" y1="126.3" y2="126.3" stroke="var(--rule)" />
+<text x="44" y="130.3" font-size="12" fill="var(--faint)" text-anchor="end">70</text>
+<line x1="52" x2="540" y1="83.0" y2="83.0" stroke="var(--rule)" />
+<text x="44" y="87.0" font-size="12" fill="var(--faint)" text-anchor="end">80</text>
+<line x1="52" x2="540" y1="39.7" y2="39.7" stroke="var(--rule)" />
+<text x="44" y="43.7" font-size="12" fill="var(--faint)" text-anchor="end">90</text>
+<text x="52.0" y="296" font-size="12.5" fill="var(--ink-2)" text-anchor="middle">5 Hz</text>
+<text x="52.0" y="311" font-size="11.5" fill="var(--faint)" text-anchor="middle">every 0.2 s</text>
+<text x="171.5" y="296" font-size="12.5" fill="var(--ink-2)" text-anchor="middle">2.5 Hz</text>
+<text x="171.5" y="311" font-size="11.5" fill="var(--faint)" text-anchor="middle">every 0.4 s</text>
+<text x="291.0" y="296" font-size="12.5" fill="var(--ink-2)" text-anchor="middle">1 Hz</text>
+<text x="291.0" y="311" font-size="11.5" fill="var(--faint)" text-anchor="middle">every 1 s</text>
+<text x="410.5" y="296" font-size="12.5" fill="var(--ink-2)" text-anchor="middle">0.5 Hz</text>
+<text x="410.5" y="311" font-size="11.5" fill="var(--faint)" text-anchor="middle">every 2 s</text>
+<text x="530.0" y="296" font-size="12.5" fill="var(--ink-2)" text-anchor="middle">0.25 Hz</text>
+<text x="530.0" y="311" font-size="11.5" fill="var(--faint)" text-anchor="middle">every 4 s</text>
+<text x="291.0" y="334" font-size="12.5" fill="var(--muted)" text-anchor="middle">How often the large model updates the memory (the action expert always runs at 5 Hz)</text>
+<text x="14" y="148.0" font-size="12.5" fill="var(--muted)" text-anchor="middle" transform="rotate(-90 14 148.0)">LIBERO success (%)</text>
+<line x1="52" x2="540" y1="60.2" y2="60.2" stroke="var(--arp)" stroke-dasharray="4 4" stroke-width="1.2" />
+<text x="546" y="52.2" font-size="12" fill="var(--arp)">fresh memory</text><text x="546" y="67.2" font-size="12" fill="var(--arp)">every chunk: 85.3</text>
+<path d="M52.0,76.5 L171.5,92.8 L291.0,117.7 L410.5,154.5 L530.0,233.6" fill="none" stroke="var(--base)" stroke-width="2" />
+<line x1="52.0" x2="52.0" y1="94.3" y2="61.3" stroke="var(--base)" stroke-width="1.2" />
+<circle cx="52.0" cy="76.5" r="4" fill="var(--base)" />
+<text x="59.0" y="90.5" font-size="11.5" fill="var(--base)" class="halo">81.5</text>
+<line x1="171.5" x2="171.5" y1="111.6" y2="76.1" stroke="var(--base)" stroke-width="1.2" />
+<circle cx="171.5" cy="92.8" r="4" fill="var(--base)" />
+<text x="178.5" y="106.8" font-size="11.5" fill="var(--base)" class="halo">77.8</text>
+<line x1="291.0" x2="291.0" y1="137.6" y2="99.5" stroke="var(--base)" stroke-width="1.2" />
+<circle cx="291.0" cy="117.7" r="4" fill="var(--base)" />
+<text x="298.0" y="131.7" font-size="11.5" fill="var(--base)" class="halo">72.0</text>
+<line x1="410.5" x2="410.5" y1="175.3" y2="134.6" stroke="var(--base)" stroke-width="1.2" />
+<circle cx="410.5" cy="154.5" r="4" fill="var(--base)" />
+<text x="417.5" y="168.5" font-size="11.5" fill="var(--base)" class="halo">63.5</text>
+<line x1="530.0" x2="530.0" y1="254.6" y2="212.6" stroke="var(--base)" stroke-width="1.2" />
+<circle cx="530.0" cy="233.6" r="4" fill="var(--base)" />
+<text x="537.0" y="247.6" font-size="11.5" fill="var(--base)" class="halo">45.3</text>
+<text x="570.0" y="237.6" font-size="13" font-weight="600" fill="var(--base)">π0-style 1B</text>
+<path d="M52.0,68.9 L171.5,62.4 L291.0,74.3 L410.5,75.4 L530.0,87.3" fill="none" stroke="var(--arp)" stroke-width="2" />
+<line x1="52.0" x2="52.0" y1="86.0" y2="54.4" stroke="var(--arp)" stroke-width="1.2" />
+<circle cx="52.0" cy="68.9" r="4" fill="var(--arp)" />
+<text x="59.0" y="60.9" font-size="11.5" fill="var(--arp)" class="halo">83.3</text>
+<line x1="171.5" x2="171.5" y1="79.1" y2="48.8" stroke="var(--arp)" stroke-width="1.2" />
+<circle cx="171.5" cy="62.4" r="4" fill="var(--arp)" />
+<text x="178.5" y="54.4" font-size="11.5" fill="var(--arp)" class="halo">84.8</text>
+<line x1="291.0" x2="291.0" y1="92.1" y2="59.2" stroke="var(--arp)" stroke-width="1.2" />
+<circle cx="291.0" cy="74.3" r="4" fill="var(--arp)" />
+<text x="298.0" y="66.3" font-size="11.5" fill="var(--arp)" class="halo">82.0</text>
+<line x1="410.5" x2="410.5" y1="93.0" y2="60.5" stroke="var(--arp)" stroke-width="1.2" />
+<circle cx="410.5" cy="75.4" r="4" fill="var(--arp)" />
+<text x="417.5" y="67.4" font-size="11.5" fill="var(--arp)" class="halo">81.8</text>
+<line x1="530.0" x2="530.0" y1="106.0" y2="71.3" stroke="var(--arp)" stroke-width="1.2" />
+<circle cx="530.0" cy="87.3" r="4" fill="var(--arp)" />
+<text x="537.0" y="79.3" font-size="11.5" fill="var(--arp)" class="halo">79.0</text>
+<text x="570.0" y="91.3" font-size="13" font-weight="600" fill="var(--arp)">ARP-1B</text>
+</svg></div>
+  <figcaption>Success with 95% intervals. The dashed line is ARP-1B given a fresh memory before every action chunk.
+  Between a refresh every 0.2&nbsp;s and one every 4&nbsp;s, ARP-1B loses
+  4.3 points. The π0-style baseline sees the scene only through the memory and loses
+  36.2.</figcaption>
+</figure>
+</section>
+
+<!-- ============================================================ ROBOLAB -->
+<section id="robolab">
+<div class="text">
+  <h2>A broad benchmark: RoboLab</h2>
+  <p>RoboLab is a photorealistic simulation benchmark for robots trained on DROID. It has 120 tasks in three difficulty
+  levels, each run in 8 randomized layouts. It tests much more than reaction, including language, distractors and
+  multi-step tasks, and it is where ARP-3B is weakest.</p>
+</div>
+<div class="tablewrap"><table><thead><tr><th class="l">Policy</th><th>Simple <span class="thn">512 ep.</span></th><th>Moderate <span class="thn">312 ep.</span></th><th>Complex <span class="thn">136 ep.</span></th><th>All tasks <span class="thn">960 ep.</span></th></tr></thead><tbody><tr><td class="l">π0.5-DROID<span class="note">Physical Intelligence; base model pre-trained on non-public data</span></td><td>42.4</td><td>37.5</td><td>22.1</td><td>37.9<span class="ci">[34.9, 41.0]</span></td></tr><tr><td class="l">LAP-3B<span class="note">DROID + Open X-Embodiment</span></td><td>20.9</td><td>18.6</td><td>8.8</td><td>18.4<span class="ci">[16.1, 21.0]</span></td></tr><tr class="ours"><td class="l">ARP-3B, synchronous<span class="note">DROID only; VLM and expert called in sequence</span></td><td>25.8</td><td>16.4</td><td>6.6</td><td>20.0<span class="ci">[17.6, 22.6]</span></td></tr><tr class="ours"><td class="l">ARP-3B, asynchronous (d = 8)<span class="note">DROID only; prefix-conditioned asynchronous execution</span></td><td>26.4</td><td>16.4</td><td>7.4</td><td>20.4<span class="ci">[18.0, 23.1]</span></td></tr></tbody></table></div>
+<p class="tcap">Success rate (%). π0.5-DROID is clearly the strongest. ARP-3B is slightly ahead of LAP-3B, a model of similar
+size that, unlike ARP, was also trained on Open X-Embodiment data. Running ARP asynchronously barely changes its overall score.</p>
+<div class="text">
+  <p>Part of π0.5's lead comes from data, so we also compared on tasks that DROID covers. To pick them:</p>
+  <ul>
+    <li>We counted DROID episodes whose instructions mention a task's objects and goal, and kept tasks with at least 100
+    such episodes.</li>
+    <li>We dropped tasks with constraints DROID has no examples of: counting, ordering, comparisons, spatial relations,
+    reorientation and sorting.</li>
+    <li>We kept the simple tier.</li>
+  </ul>
+  <p>That leaves 18 tasks. This is a word-matching estimate of coverage, not a check that DROID contains the same
+  manipulation.</p>
+  <div class="tablewrap"><table><thead><tr><th class="l">Policy</th><th>Success, 18 DROID-covered tasks</th><th>Success, all 120 tasks</th></tr></thead><tbody><tr><td class="l">π0.5-DROID</td><td>35.4%<span class="ci">[28.1, 43.5]</span></td><td class="sub">37.9%</td></tr><tr><td class="l">LAP-3B</td><td>27.1%<span class="ci">[20.5, 34.9]</span></td><td class="sub">18.4%</td></tr><tr class="ours"><td class="l">ARP-3B, synchronous</td><td>31.9%<span class="ci">[24.9, 39.9]</span></td><td class="sub">20.0%</td></tr><tr class="ours"><td class="l">ARP-3B, asynchronous (d = 8)</td><td>37.5%<span class="ci">[30.0, 45.6]</span></td><td class="sub">20.4%</td></tr></tbody></table></div>
+  <p class="tcap">On these tasks, asynchronous ARP and π0.5-DROID are within noise of each other (144 episodes each).
+  On the 29 of these episodes that both solved, ARP was faster:
+  16.8&nbsp;s against 20.9&nbsp;s on average.
+  Across all 81 simple-tier episodes that both solved, they take the same time
+  (17.6 vs 17.9&nbsp;s).</p>
+  <p>For the same ARP checkpoint, asynchronous execution with an 8-step action prefix gave smoother motion than
+  synchronous execution on these tasks:</p>
+  <div class="tablewrap"><table><thead><tr><th class="l">ARP-3B</th><th>Success</th><th>Time (s)</th><th>Jerk (ISJ)</th><th>SPARC</th></tr></thead><tbody>
+    <tr><td class="l">Synchronous</td><td>31.9%</td><td>19.5</td><td>456</td><td>−5.11</td></tr>
+    <tr class="ours"><td class="l">Asynchronous, 8-step prefix</td><td>37.5%</td><td>17.1</td><td>296</td><td>−3.90</td></tr>
+    <tr><td class="l sub">Change on the 37 episodes both solved</td><td class="sub">+5.6, n.s.</td><td class="sub">−15%</td><td class="sub">−39%, p &lt; 0.01</td><td class="sub">+25%, p &lt; 0.001</td></tr>
+  </tbody></table></div>
+  <p class="tcap">Success is over all 144 episodes. The other columns are over successful episodes, since a failed episode runs to
+  its time limit. Jerk is the integrated squared jerk of the gripper (lower is smoother). SPARC is the spectral arc length
+  (closer to zero is smoother). Tests: exact McNemar for success, Wilcoxon signed-rank otherwise.</p>
+</div>
+
+<h3 class="text" id="rl-rollouts">RoboLab rollouts</h3>
+<div class="controls">
+  <select id="rl-task" aria-label="Task"><option value="0">Put the lizards in the bin</option><option value="1">put the bowl in the grey bin</option><option value="2">Stack the left bowl on the right bowl</option><option value="3">Stack the right bowl on the left bowl</option><option value="4">Put the canned food in the grey bin</option><option value="5">Move the pink tool from this utensil container to the other utensil holder</option><option value="6">Pack boxed foods into the bin</option><option value="7">Pack canned foods into the bin</option><option value="8">Pack boxed foods into the bin</option><option value="9">Pack canned foods into the bin</option><option value="10">Pick up a fruit</option><option value="11">Put any white plastic bottle on the shelf</option><option value="12">Put the red dishware in the grey bin</option><option value="13">Put the cube or the banana in the bowl</option><option value="14">Take the white colored measuring spoon out of the red bowl and put it on the table.</option><option value="15">Clean up the white mugs</option></select>
+</div>
+<div class="grid2" id="rl-gallery">
+  <div class="tile"><div class="head"><span>ARP-3B, asynchronous</span><span class="res" data-k="arp_async"></span></div><video data-k="arp" muted playsinline controls loop preload="metadata"></video></div>
+  <div class="tile"><div class="head"><span>π0.5-DROID</span><span class="res" data-k="pi05"></span></div><video data-k="pi05" muted playsinline controls loop preload="metadata"></video></div>
+</div>
+<p class="text small">Layout 0 of each DROID-covered task, in real time. These 16 episodes favour ARP
+(8 successes against 3) more than the full results do. Two tasks are missing
+because every π0.5 recording of them is corrupted on disk, but their episodes are counted in the tables.</p>
+<script type="application/json" id="rl-data">[{"task": "AnimalsInBinTask", "instruction": "Put the lizards in the bin", "pi05": {"success": false, "duration": 90.0}, "arp_async": {"success": false, "duration": 90.0}}, {"task": "BowlInBinTask", "instruction": "put the bowl in the grey bin", "pi05": {"success": false, "duration": 60.0}, "arp_async": {"success": true, "duration": 22.7}}, {"task": "BowlStackingLeftOnRightTask", "instruction": "Stack the left bowl on the right bowl", "pi05": {"success": false, "duration": 20.0}, "arp_async": {"success": false, "duration": 20.0}}, {"task": "BowlStackingRightOnLeftTask", "instruction": "Stack the right bowl on the left bowl", "pi05": {"success": false, "duration": 20.0}, "arp_async": {"success": true, "duration": 11.9}}, {"task": "CannedFoodInBinTask", "instruction": "Put the canned food in the grey bin", "pi05": {"success": false, "duration": 60.0}, "arp_async": {"success": true, "duration": 23.8}}, {"task": "CookingPickPastaToolTask", "instruction": "Move the pink tool from this utensil container to the other utensil holder", "pi05": {"success": false, "duration": 60.0}, "arp_async": {"success": false, "duration": 60.0}}, {"task": "FoodPacking1BoxesTask", "instruction": "Pack boxed foods into the bin", "pi05": {"success": false, "duration": 60.0}, "arp_async": {"success": false, "duration": 60.0}}, {"task": "FoodPacking1CansTask", "instruction": "Pack canned foods into the bin", "pi05": {"success": true, "duration": 35.1}, "arp_async": {"success": true, "duration": 11.7}}, {"task": "FoodPacking2BoxesTask", "instruction": "Pack boxed foods into the bin", "pi05": {"success": false, "duration": 180.0}, "arp_async": {"success": false, "duration": 180.0}}, {"task": "FoodPacking2CansTask", "instruction": "Pack canned foods into the bin", "pi05": {"success": false, "duration": 180.0}, "arp_async": {"success": false, "duration": 180.0}}, {"task": "GrabAFruitTask", "instruction": "Pick up a fruit", "pi05": {"success": false, "duration": 30.0}, "arp_async": {"success": true, "duration": 20.9}}, {"task": "OneBottleOnShelfTask", "instruction": "Put any white plastic bottle on the shelf", "pi05": {"success": false, "duration": 60.0}, "arp_async": {"success": false, "duration": 60.0}}, {"task": "RedDishesInBinTask", "instruction": "Put the red dishware in the grey bin", "pi05": {"success": false, "duration": 60.0}, "arp_async": {"success": true, "duration": 19.1}}, {"task": "RubiksCubeOrBananaTask", "instruction": "Put the cube or the banana in the bowl", "pi05": {"success": true, "duration": 13.7}, "arp_async": {"success": true, "duration": 10.5}}, {"task": "TakeMeasuringSpoonOutTask", "instruction": "Take the white colored measuring spoon out of the red bowl and put it on the table.", "pi05": {"success": true, "duration": 8.1}, "arp_async": {"success": true, "duration": 15.7}}, {"task": "WhiteMugsInBinTask", "instruction": "Clean up the white mugs", "pi05": {"success": false, "duration": 60.0}, "arp_async": {"success": false, "duration": 60.0}}]</script>
+<details class="text"><summary>Results for all 120 tasks</summary>
+<div class="tablewrap"><table><thead><tr><th class="l">Task</th><th class="l">Instruction</th><th class="l">Tier</th><th>π0.5</th><th>LAP-3B</th><th>ARP sync</th><th>ARP async</th></tr></thead><tbody><tr><td class="l">AnimalsInBin †</td><td class="l">Put the lizards in the bin</td><td class="l">simple</td><td>2</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">BBQSauceInBin</td><td class="l">Put the red BBQ sauce bottles in the grey bin</td><td class="l">simple</td><td>5</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">BagelsOnPlate</td><td class="l">Put the bagels on the plate</td><td class="l">simple</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">BananaInBowl</td><td class="l">Pick up the banana and place it in the bowl</td><td class="l">simple</td><td>8</td><td>6</td><td>8</td><td>8</td></tr><tr><td class="l">BananaOnPlate</td><td class="l">Pick up the banana and put it on the plate</td><td class="l">simple</td><td>6</td><td>6</td><td>7</td><td>8</td></tr><tr><td class="l">BananaThenRubiksCube</td><td class="l">put the banana then the cube in the bowl</td><td class="l">simple</td><td>5</td><td>1</td><td>2</td><td>4</td></tr><tr><td class="l">BigPumpkinInBin</td><td class="l">Put the bigger pumpkin in the bin</td><td class="l">simple</td><td>3</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">BowlInBin †</td><td class="l">put the bowl in the grey bin</td><td class="l">simple</td><td>6</td><td>0</td><td>4</td><td>6</td></tr><tr><td class="l">BowlStackingLeftOnRight †</td><td class="l">Stack the left bowl on the right bowl</td><td class="l">simple</td><td>0</td><td>0</td><td>0</td><td>2</td></tr><tr><td class="l">BowlStackingRightOnLeft †</td><td class="l">Stack the right bowl on the left bowl</td><td class="l">simple</td><td>2</td><td>0</td><td>1</td><td>1</td></tr><tr><td class="l">ButterAboveRaisin</td><td class="l">Pick up the butter box and place it on top of the raisin box</td><td class="l">simple</td><td>6</td><td>2</td><td>0</td><td>2</td></tr><tr><td class="l">CannedFoodInBin †</td><td class="l">Put the canned food in the grey bin</td><td class="l">simple</td><td>2</td><td>3</td><td>7</td><td>8</td></tr><tr><td class="l">ClampInRightBin</td><td class="l">Put the spring clamp in the right bin</td><td class="l">simple</td><td>6</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">ClutterPumpkin</td><td class="l">Put all the pumpkins away in the bin</td><td class="l">simple</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">CoffeePotInBin</td><td class="l">Put the coffee pot in the grey bin</td><td class="l">simple</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">CookingPickPastaTool †</td><td class="l">Move the pink tool from this utensil container to the other utensil holder</td><td class="l">simple</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">FoodPacking1Boxes †</td><td class="l">Pack boxed foods into the bin</td><td class="l">simple</td><td>1</td><td>2</td><td>1</td><td>0</td></tr><tr><td class="l">FoodPacking1Cans †</td><td class="l">Pack canned foods into the bin</td><td class="l">simple</td><td>8</td><td>7</td><td>8</td><td>8</td></tr><tr><td class="l">FoodPacking2Boxes †</td><td class="l">Pack boxed foods into the bin</td><td class="l">simple</td><td>1</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">FoodPacking2Cans †</td><td class="l">Pack canned foods into the bin</td><td class="l">simple</td><td>3</td><td>1</td><td>0</td><td>1</td></tr><tr><td class="l">FruitsGreenLimesOnPlate</td><td class="l">Put all the green fruit on the plate</td><td class="l">simple</td><td>5</td><td>1</td><td>4</td><td>2</td></tr><tr><td class="l">FruitsMovingOrangeOrLime</td><td class="l">Move an orange or a lime to the wood bowl</td><td class="l">simple</td><td>6</td><td>1</td><td>0</td><td>3</td></tr><tr><td class="l">FruitsMoving</td><td class="l">Move an orange to the white bowl</td><td class="l">simple</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">FruitsOnion</td><td class="l">Put the onion in the wood bowl</td><td class="l">simple</td><td>5</td><td>3</td><td>0</td><td>0</td></tr><tr><td class="l">FruitsOnionToPlate</td><td class="l">Put the onion on the plate</td><td class="l">simple</td><td>3</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">GrabABagel</td><td class="l">Grab a bagel</td><td class="l">simple</td><td>1</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">GrabAFruit †</td><td class="l">Pick up a fruit</td><td class="l">simple</td><td>0</td><td>2</td><td>0</td><td>7</td></tr><tr><td class="l">JugsOnShelf</td><td class="l">Put all the jugs on the shelf</td><td class="l">simple</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">KeyboardOutOfBin</td><td class="l">Take the keyboard out of the bin and put it on the table</td><td class="l">simple</td><td>6</td><td>0</td><td>1</td><td>1</td></tr><tr><td class="l">LargerObjectRaisinBoxInBin</td><td class="l">Place the larger object in the grey bin.</td><td class="l">simple</td><td>1</td><td>0</td><td>1</td><td>0</td></tr><tr><td class="l">MouseOnKeyboard</td><td class="l">Put the computer mouse on the keyboard</td><td class="l">simple</td><td>8</td><td>5</td><td>2</td><td>3</td></tr><tr><td class="l">MoveBananaToBagelPlate</td><td class="l">Move the bananas to the bagel plate</td><td class="l">simple</td><td>0</td><td>0</td><td>0</td><td>1</td></tr><tr><td class="l">MustardAboveRaisin</td><td class="l">Place the mustard on the raisin box. </td><td class="l">simple</td><td>6</td><td>3</td><td>2</td><td>2</td></tr><tr><td class="l">MustardInLeftBin</td><td class="l">Put the mustard in the left bin</td><td class="l">simple</td><td>7</td><td>3</td><td>7</td><td>1</td></tr><tr><td class="l">MustardInRightBin</td><td class="l">Put the mustard in the right bin</td><td class="l">simple</td><td>7</td><td>0</td><td>3</td><td>1</td></tr><tr><td class="l">OneBottleInSquarePail</td><td class="l">Put any white plastic bottle in the square pail</td><td class="l">simple</td><td>3</td><td>5</td><td>6</td><td>7</td></tr><tr><td class="l">OneBottleOnShelf †</td><td class="l">Put any white plastic bottle on the shelf</td><td class="l">simple</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">PhoneOrRemoteInBin</td><td class="l">Put the phone or the remote in the grey bin</td><td class="l">simple</td><td>8</td><td>3</td><td>2</td><td>1</td></tr><tr><td class="l">PickDrill</td><td class="l">Pick up the cordless drill.</td><td class="l">simple</td><td>6</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">PickGlasses</td><td class="l">Pick up the eye glasses</td><td class="l">simple</td><td>5</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">PickOrangeObject</td><td class="l">Pick up the orange measuring cup</td><td class="l">simple</td><td>5</td><td>0</td><td>0</td><td>1</td></tr><tr><td class="l">PickUpGreenObject</td><td class="l">Pick up the green vegetable block</td><td class="l">simple</td><td>6</td><td>0</td><td>0</td><td>1</td></tr><tr><td class="l">PutBowlOnShelfTop</td><td class="l">Put the serving bowl anywhere on the shelf in front of you</td><td class="l">simple</td><td>0</td><td>2</td><td>0</td><td>2</td></tr><tr><td class="l">RecycleCarton</td><td class="l">Put the recyclable cartons in the grey bin</td><td class="l">simple</td><td>4</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">RecycleCartonsOnBox</td><td class="l">Put the cartons that can be recycled on the box</td><td class="l">simple</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">RedDishesInBin †</td><td class="l">Put the red dishware in the grey bin</td><td class="l">simple</td><td>3</td><td>1</td><td>0</td><td>1</td></tr><tr><td class="l">RubiksCubeAndBanana †</td><td class="l">Put the cube and the banana in the bowl</td><td class="l">simple</td><td>6</td><td>7</td><td>7</td><td>3</td></tr><tr><td class="l">RubiksCubeOrBanana †</td><td class="l">Put the cube or the banana in the bowl</td><td class="l">simple</td><td>8</td><td>7</td><td>8</td><td>7</td></tr><tr><td class="l">RubiksCube</td><td class="l">Put the cube in the bowl</td><td class="l">simple</td><td>8</td><td>8</td><td>8</td><td>8</td></tr><tr><td class="l">RubiksCubeThenBanana</td><td class="l">Put the cube then the banana in the bowl</td><td class="l">simple</td><td>1</td><td>3</td><td>6</td><td>7</td></tr><tr><td class="l">SauceBottlesCrate</td><td class="l">Put the red bbq sauce bottle in the crate</td><td class="l">simple</td><td>7</td><td>5</td><td>6</td><td>4</td></tr><tr><td class="l">SmallPumpkinInBin</td><td class="l">Put the small pumpkin in the bin</td><td class="l">simple</td><td>0</td><td>0</td><td>0</td><td>1</td></tr><tr><td class="l">SmallerObjectButterInBin</td><td class="l">Place the smaller object in the grey bin.</td><td class="l">simple</td><td>6</td><td>4</td><td>6</td><td>6</td></tr><tr><td class="l">SmartphoneInBin</td><td class="l">Put the smartphone in the grey bin</td><td class="l">simple</td><td>0</td><td>4</td><td>0</td><td>0</td></tr><tr><td class="l">TakeMeasuringSpoonOut †</td><td class="l">Take the white colored measuring spoon out of the red bowl and put it on the table.</td><td class="l">simple</td><td>4</td><td>5</td><td>8</td><td>8</td></tr><tr><td class="l">ThrowAwayApple</td><td class="l">Throw away the apple</td><td class="l">simple</td><td>0</td><td>2</td><td>2</td><td>2</td></tr><tr><td class="l">ThrowAwaySnacks</td><td class="l">Put away the snacks in the bin</td><td class="l">simple</td><td>1</td><td>0</td><td>5</td><td>1</td></tr><tr><td class="l">ToolsPickingDrill</td><td class="l">Select the cordless drill and put it on the table</td><td class="l">simple</td><td>2</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">ToolsPickingHammer</td><td class="l">Select the blue hammer and put it on the table</td><td class="l">simple</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">ToyInBin †</td><td class="l">Put the lizard away in the bin</td><td class="l">simple</td><td>5</td><td>4</td><td>2</td><td>2</td></tr><tr><td class="l">WhiteMugsInBin †</td><td class="l">Clean up the white mugs</td><td class="l">simple</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">WoodSpatulaToBowl</td><td class="l">Put the wooden spatula in the bowl</td><td class="l">simple</td><td>6</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">YellowAndWhiteObjectsInBin</td><td class="l">Put all white objects and yellow objects in the grey bin</td><td class="l">simple</td><td>1</td><td>0</td><td>2</td><td>0</td></tr><tr><td class="l">YogurtInBowl</td><td class="l">Put the small red yogurt in the red bowl</td><td class="l">simple</td><td>3</td><td>1</td><td>6</td><td>4</td></tr><tr><td class="l">AppleAndYogurtInBowl</td><td class="l">Put the apple and yogurt in the bowl</td><td class="l">moderate</td><td>5</td><td>1</td><td>2</td><td>3</td></tr><tr><td class="l">BananasInBinOneMore</td><td class="l">Put one (1) more bananas in the grey bin.</td><td class="l">moderate</td><td>7</td><td>8</td><td>8</td><td>2</td></tr><tr><td class="l">BananasInBinThreeTotal</td><td class="l">Make sure there are 3 (three) bananas in the grey bin.</td><td class="l">moderate</td><td>8</td><td>8</td><td>8</td><td>5</td></tr><tr><td class="l">BananasInCrate</td><td class="l">Put 2 bananas in the crate</td><td class="l">moderate</td><td>7</td><td>8</td><td>8</td><td>8</td></tr><tr><td class="l">BananasOutOfBin</td><td class="l">Take the bananas out</td><td class="l">moderate</td><td>6</td><td>4</td><td>6</td><td>8</td></tr><tr><td class="l">ClutterPlastic</td><td class="l">Put all plastic bottles away in the bin</td><td class="l">moderate</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">CookingClearPlate</td><td class="l">Put the two measuring cups outside of the plate</td><td class="l">moderate</td><td>6</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">DishesInBin</td><td class="l">Put the dishware in the grey bin</td><td class="l">moderate</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">FoodPacking3Boxes</td><td class="l">Pack boxed foods into the bin</td><td class="l">moderate</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">FoodPacking3Cans</td><td class="l">Pack canned foods into the bin</td><td class="l">moderate</td><td>2</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">FoodPackingByColor</td><td class="l">Pack yellow objects in right container and blue object in the left container</td><td class="l">moderate</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">FruitsOrangesOnPlate</td><td class="l">Put all the oranges on the plate</td><td class="l">moderate</td><td>5</td><td>2</td><td>0</td><td>0</td></tr><tr><td class="l">HammersInLeftBin</td><td class="l">Put the red hammer and black hammer in the left bin</td><td class="l">moderate</td><td>3</td><td>1</td><td>0</td><td>0</td></tr><tr><td class="l">MarkerInMug</td><td class="l">Put the whiteboard marker in the mug</td><td class="l">moderate</td><td>5</td><td>0</td><td>1</td><td>3</td></tr><tr><td class="l">NonHammerToolsInRightBin</td><td class="l">Put the non-hammer tools in the right bin</td><td class="l">moderate</td><td>4</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">PickUpBluePitcher</td><td class="l">Pick up the large blue pitcher</td><td class="l">moderate</td><td>4</td><td>0</td><td>0</td><td>1</td></tr><tr><td class="l">PinkSpoonInPot</td><td class="l">Put the pink spaghetti spoon in the pot</td><td class="l">moderate</td><td>4</td><td>0</td><td>1</td><td>0</td></tr><tr><td class="l">PutMugsOnShelf</td><td class="l">Put the two mugs on the shelf</td><td class="l">moderate</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">PutTwoMugsOnShelf</td><td class="l">Put two (2) mugs on the wire shelf</td><td class="l">moderate</td><td>1</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">RecycleCartonsVerticalCrate</td><td class="l">Put the cartons that can be recycled in the vertical crate</td><td class="l">moderate</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">RedItemsInBin</td><td class="l">Put all the red things in the grey bin</td><td class="l">moderate</td><td>3</td><td>0</td><td>1</td><td>0</td></tr><tr><td class="l">ReorientJug</td><td class="l">Stand the jug upright</td><td class="l">moderate</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">ReorientRedMug</td><td class="l">Put the red mug upright so that the opening is facing upwards.</td><td class="l">moderate</td><td>3</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">ReorientWhiteMugs</td><td class="l">Make sure all the white mugs are upright so that the opening is facing upwards.</td><td class="l">moderate</td><td>4</td><td>1</td><td>0</td><td>0</td></tr><tr><td class="l">RubiksCubeBehindBowl</td><td class="l">Put the rubiks cube behind the bowl</td><td class="l">moderate</td><td>7</td><td>7</td><td>1</td><td>3</td></tr><tr><td class="l">RubiksCubeInFrontOfBowl</td><td class="l">Put the rubiks cube in front of the bowl</td><td class="l">moderate</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">RubiksCubeLeftOfBowl</td><td class="l">Put the rubiks cube to the left of the bowl</td><td class="l">moderate</td><td>1</td><td>2</td><td>2</td><td>3</td></tr><tr><td class="l">RubiksCubeRightOfBowl</td><td class="l">Put the rubiks cube to the right of the bowl</td><td class="l">moderate</td><td>0</td><td>3</td><td>2</td><td>2</td></tr><tr><td class="l">SpoonInMug</td><td class="l">Put the metal spoon that&#x27;s in the wooden bowl in the mug</td><td class="l">moderate</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">Stack3RubiksCube</td><td class="l">Stack the rubiks cubes in a tower</td><td class="l">moderate</td><td>4</td><td>1</td><td>0</td><td>1</td></tr><tr><td class="l">StackWhiteMugs</td><td class="l">Stack the white mugs on top of each other.</td><td class="l">moderate</td><td>6</td><td>4</td><td>1</td><td>1</td></tr><tr><td class="l">StackYellowOnRed</td><td class="l">Stack the yellow block on the red block</td><td class="l">moderate</td><td>6</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">TakeMugsOffOfShelf</td><td class="l">Take the mugs off the shelf</td><td class="l">moderate</td><td>1</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">TakeSpatulaOffShelf</td><td class="l">Take the spatula off the shelf and put it on the table</td><td class="l">moderate</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">ToolOrganizationBoth</td><td class="l">Put hammers in the right bin and do not touch anything else</td><td class="l">moderate</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">ToolOrganization</td><td class="l">Put the red hammer and black hammer in the left bin</td><td class="l">moderate</td><td>3</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">UnstackRubiksCube</td><td class="l">Unstack the rubiks cube tower</td><td class="l">moderate</td><td>8</td><td>7</td><td>8</td><td>8</td></tr><tr><td class="l">UtensilsInMug</td><td class="l">Put the fork and spoon in the ceramicmug</td><td class="l">moderate</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">WhiteMugInCenterOfTable</td><td class="l">Put the white mug in the center of the table.</td><td class="l">moderate</td><td>4</td><td>1</td><td>2</td><td>3</td></tr><tr><td class="l">BlackItemsInBin</td><td class="l">Put the black items in the grey bin</td><td class="l">complex</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">BlockStackingOrderAgnostic</td><td class="l">Stack the blocks into a tower</td><td class="l">complex</td><td>1</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">BlockStackingSpecifiedOrder</td><td class="l">Stack the blocks in the order from bottom to top: red, blue, green, yellow</td><td class="l">complex</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">BlocksInBin</td><td class="l">Sort all colored blocks into the bin</td><td class="l">complex</td><td>1</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">CleanUpToys</td><td class="l">Clean up all the smaller toys and leave the birdhouse on the table</td><td class="l">complex</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">ClearOrganicObjects</td><td class="l">Clear away the organic objects</td><td class="l">complex</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">CondimentsInBin</td><td class="l">Sort the sauce condiments into the grey bin</td><td class="l">complex</td><td>3</td><td>0</td><td>2</td><td>0</td></tr><tr><td class="l">CubesAndBlocksInBin</td><td class="l">Put all the cubes and blocks in the bin</td><td class="l">complex</td><td>4</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">ElectronicsInBin</td><td class="l">Put the electronic devices in the grey bin</td><td class="l">complex</td><td>1</td><td>1</td><td>0</td><td>0</td></tr><tr><td class="l">FruitsOnPlate3</td><td class="l">Put three (3) fruits on the plate</td><td class="l">complex</td><td>6</td><td>4</td><td>5</td><td>8</td></tr><tr><td class="l">FruitsOnPlate</td><td class="l">Put all the fruits on the plate</td><td class="l">complex</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">GreenSpoonsInPot</td><td class="l">Put the green spoons in the pot</td><td class="l">complex</td><td>2</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">PlasticBottlesInSquarePail</td><td class="l">Put all the small plastic bottles in the square pail</td><td class="l">complex</td><td>4</td><td>3</td><td>1</td><td>1</td></tr><tr><td class="l">ReorientAllMugs</td><td class="l">Reorient all the mugs upright so that the opening is facing upwards.</td><td class="l">complex</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l">RubiksCubesInBin</td><td class="l">Sort all rubiks cubes into the bin</td><td class="l">complex</td><td>8</td><td>4</td><td>1</td><td>0</td></tr><tr><td class="l">SpoonsInPot</td><td class="l">Put all of the serving spoons with no holes in the pot</td><td class="l">complex</td><td>0</td><td>0</td><td>0</td><td>1</td></tr><tr><td class="l">ToolsPickingAllHammers</td><td class="l">Take out all the hammers and put them on the table</td><td class="l">complex</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="l"><b>Total</b></td><td class="l"></td><td class="l"></td><td><b>364</b> / 960</td><td><b>177</b> / 960</td><td><b>192</b> / 960</td><td><b>196</b> / 960</td></tr></tbody></table></div>
+<p class="tcap">Successes out of 8 layouts. † marks the 18 DROID-covered tasks.</p>
+</details>
+</section>
+
+<!-- ============================================================ SCALE -->
+<section id="libero">
+<div class="text">
+  <h2>Does a bigger VLM help?</h2>
+  <p>In simulation we trained the same recipe with five sizes of InternVL3.5, from 1B to 14B parameters. The vision
+  encoder is the same frozen InternViT-300M in every model, so only the language model changes. On the standard LIBERO
+  benchmark (40 tasks, 2,000 episodes per model), success rises from 84.8% at 1B to 89.3% at 8B.
+  14B is no better than 8B. When the object jumps mid-reach, larger models did not help:
+  51.5% at 1B, 40.0% at 8B and 40.0% at 14B.</p>
+</div>
+<div class="tablewrap"><table><thead><tr><th class="l">Model</th><th class="l">Language model</th><th>Spatial</th><th>Object</th><th>Goal</th><th>Long</th><th>Average, async</th><th>Average, sync</th></tr></thead><tbody><tr class="ours"><td class="l">ARP-1B</td><td class="l">Qwen3-0.6B</td><td>89.4</td><td>97.6</td><td>89.8</td><td>62.4</td><td>84.8<span class="ci">[83.2, 86.3]</span></td><td class="sub">82.9</td></tr><tr class="ours"><td class="l">ARP-2B</td><td class="l">Qwen3-1.7B</td><td>89.2</td><td>96.0</td><td>88.6</td><td>72.6</td><td>86.6<span class="ci">[85.0, 88.0]</span></td><td class="sub">84.4</td></tr><tr class="ours"><td class="l">ARP-4B</td><td class="l">Qwen3-4B</td><td>91.4</td><td>96.0</td><td>84.6</td><td>66.0</td><td>84.5<span class="ci">[82.8, 86.0]</span></td><td class="sub">83.5</td></tr><tr class="ours"><td class="l">ARP-8B</td><td class="l">Qwen3-8B</td><td>92.8</td><td>98.6</td><td>90.4</td><td>75.2</td><td>89.3<span class="ci">[87.8, 90.5]</span></td><td class="sub">86.5</td></tr><tr class="ours"><td class="l">ARP-14B</td><td class="l">Qwen3-14B</td><td>88.4</td><td>96.4</td><td>80.2</td><td>74.0</td><td>84.8<span class="ci">[83.1, 86.3]</span></td><td class="sub">81.3</td></tr><tr class="group"><td colspan="8">Baseline: same backbone and recipe, no camera input in the action expert</td></tr><tr><td class="l">π0-style 1B</td><td class="l">Qwen3-0.6B</td><td>83.2</td><td>95.2</td><td>90.6</td><td>51.8</td><td>80.2<span class="ci">[78.4, 81.9]</span></td><td class="sub">75.7</td></tr><tr><td class="l">π0-style 8B</td><td class="l">Qwen3-8B</td><td>85.4</td><td>95.0</td><td>90.0</td><td>60.4</td><td>82.7<span class="ci">[81.0, 84.3]</span></td><td class="sub">81.3</td></tr><tr class="group"><td colspan="8">Reported by the original authors (different pre-training and vision encoder; not directly comparable)</td></tr><tr><td class="l">π0</td><td class="l">PaliGemma-3B</td><td>96.8</td><td>98.8</td><td>95.8</td><td>85.2</td><td>94.2</td><td class="sub">–</td></tr><tr><td class="l">Diffusion Policy</td><td class="l">–</td><td>78.3</td><td>92.5</td><td>68.3</td><td>50.5</td><td>72.4</td><td class="sub">–</td></tr></tbody></table></div>
+<p class="tcap">Success rate (%) on LIBERO. “Async” and “sync” run the same weights without and with the VLM in the control loop.
+Asynchronous execution is 1 to 3.5 points higher at every size. The released π0 is far ahead. It uses large-scale robot
+pre-training and an unfrozen vision encoder, so its row is only there for scale.</p>
+</section>
+
+<!-- ============================================================ LIMITATIONS -->
+<section id="limitations" class="text">
+  <h2>Limitations</h2>
+  <p>The real-robot study is small: three tasks, ten trials each, one robot and one lab. The two policies were run in
+  separate sessions on the same day, and π0.5-DROID did better on cup stacking.</p>
+  <p>ARP-3B is not a better generalist than π0.5-DROID. It trails on RoboLab by 17.9 points overall. The two models differ
+  in both architecture and training data, so this comparison cannot tell which of the two matters more.</p>
+  <p>We have not shown that a larger VLM makes the robot react better. On LIBERO-Perturb the larger models did worse.
+  In that test, most of ARP's advantage comes from the action expert's own camera, and only a little from asynchrony. Before
+  running it, we registered a check that asynchronous execution stalls less often than synchronous execution there, and
+  the check failed: 12.0% against 12.5% of episodes stalled for more than a second. Reaction times favour asynchronous
+  execution but are not significant, and settling the question would take roughly ten times more trials.</p>
+  <p>We do not know how slowly the VLM can run before performance drops. We tested down to one refresh every 4&nbsp;s. In
+  simulation, the π0-style baseline is our reimplementation, not the released π0. The real-robot and RoboLab
+  comparisons use the released π0.5-DROID.</p>
+</section>
+
+<!-- ============================================================ MODELS -->
+<section id="models" class="text">
+  <h2>Code and models</h2>
+  <p>We will release the code and the checkpoints below with the paper. The simulation checkpoints contain only the
+  weights trained on top of the public VLM: LoRA adapters, projector, memory adapter and action expert.</p>
+  <div class="tablewrap"><table><thead><tr><th class="l">Checkpoint</th><th class="l">Semantic expert</th><th class="l">Training data</th><th>Trained weights</th></tr></thead><tbody><tr><td class="l">ARP-1B</td><td class="l">InternVL3.5-1B</td><td class="l">LIBERO (40 tasks)</td><td>0.84 GB</td></tr><tr><td class="l">ARP-2B</td><td class="l">InternVL3.5-2B</td><td class="l">LIBERO</td><td>0.88 GB</td></tr><tr><td class="l">ARP-4B</td><td class="l">InternVL3.5-4B</td><td class="l">LIBERO</td><td>0.96 GB</td></tr><tr><td class="l">ARP-8B</td><td class="l">InternVL3.5-8B</td><td class="l">LIBERO</td><td>1.03 GB</td></tr><tr><td class="l">ARP-14B</td><td class="l">InternVL3.5-14B</td><td class="l">LIBERO</td><td>1.14 GB</td></tr><tr><td class="l">π0-style 1B / 8B</td><td class="l">InternVL3.5-1B / 8B</td><td class="l">LIBERO</td><td>0.83 / 1.02 GB</td></tr><tr><td class="l">Staleness ablations (d<sub>max</sub> = 0, 8, 80)</td><td class="l">InternVL3.5-1B</td><td class="l">LIBERO</td><td>0.84 GB</td></tr><tr><td class="l">ARP-1B and π0-style 1B, Dyn-Bump</td><td class="l">InternVL3.5-1B</td><td class="l">Dyn-Bump (scripted expert)</td><td>0.84 / 0.83 GB</td></tr><tr><td class="l">ARP-3B</td><td class="l">PaliGemma-3B + DINOv3</td><td class="l">DROID</td><td>–</td></tr></tbody></table></div>
+</section>
+
+<!-- ============================================================ CITATION -->
+<section id="citation" class="text">
+  <h2>Citation</h2>
+<pre>@misc{arp2026,
+  title         = {Asynchronous Robot Policies},
+  author        = {Anonymous},
+  year          = {2026},
+  eprint        = {XXXX.XXXXX},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.RO}
+}</pre>
+</section>
+
+</main>
+
+<footer class="wrap">
+  Videos are unedited apart from speed and cropping. Success rates are computed from per-episode logs, and brackets are 95%
+  Wilson intervals.
+</footer>
+
+<script src="assets/site.js"></script>
+</body>
+</html>
