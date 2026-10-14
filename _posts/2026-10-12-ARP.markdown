@@ -5,7 +5,7 @@ date:   2026-10-12 00:00:00 +00:00
 image: /images/ARP.png
 categories: research
 author: "Sombit Dey"
-authors: "Anonymous authors"
+authors: "<strong>Sombit Dey</strong>, Luc Van Gool, Danda Pani Paudel"
 venue: "arXiv preprint, 2026"
 website: https://sombit888.github.io/ARP/
 ---

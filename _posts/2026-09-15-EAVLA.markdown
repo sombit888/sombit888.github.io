@@ -6,7 +6,7 @@ image: /images/EAVLA.png
 categories: research
 author: "Sombit Dey"
 authors: "<strong>Sombit Dey</strong>, Jan-Nico Zaech, Luc Van Gool, Danda Pani Paudel"
-venue: "Under review"
+venue: "WRL @ NeurIPS 2026"
 website: https://sombit888.github.io/EAVLA/
 ---
 Robots never execute exactly what a VLA commands, and how far off they are depends on the controller. EA-VLA feeds the policy its previous commands together with the robot's measured state and finetunes it with RL under randomized controllers, so it learns to correct for the difference. It stays robust across controllers, with an 11% higher success rate on WidowX and up to 50% higher throughput on Franka.
